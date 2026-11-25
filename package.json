@@ -1,0 +1,7 @@
+{
+  "name": "tdmaps",
+  "private": true,
+  "type": "module",
+  "description": "Puente MCP entre Claude y la API de la EMT de Madrid",
+  "engines": { "node": ">=18" }
+}
