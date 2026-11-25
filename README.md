@@ -19,3 +19,7 @@ Puente entre Claude y la API de autobuses de la EMT de Madrid (MobilityLabs). Es
 4. En Claude, añade un conector personalizado con esa misma URL.
 
 Las credenciales solo viven en Vercel; nunca se guardan en este repositorio.
+
+## La app (Parada)
+
+La web está en la raíz del proyecto (`index.html`). Ábrela una vez con tu clave, `https://TU-PROYECTO.vercel.app/?key=TU_MCP_KEY`, y añádela a la pantalla de inicio desde Safari. Usa el GPS del móvil, el micrófono de Safari, el mapa de OpenStreetMap (OpenFreeMap) y los datos de la EMT a través de `/api/emt`.
