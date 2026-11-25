@@ -9,8 +9,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Parada">
 <meta name="theme-color" content="#f4f1ea">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
@@ -154,9 +154,10 @@ const save=()=>{try{localStorage.setItem('parada',JSON.stringify(P))}catch(e){}}
 const KEY=new URLSearchParams(location.search).get('key')||(()=>{try{return localStorage.getItem('parada-key')}catch(e){return ''}})()||'';
 try{if(KEY)localStorage.setItem('parada-key',KEY)}catch(e){}
 
-/* ---------- datos EMT (tu servidor de Vercel) ---------- */
+/* ---------- datos EMT (puente en Vercel) ---------- */
+const API=/vercel\.app$/.test(location.host)?'':'https://tdmaps.vercel.app';
 const dot=$('#dot');
-async function api(tool,params){const q=new URLSearchParams({tool,...params,key:KEY});const r=await fetch('/api/emt?'+q,{cache:'no-store'});const j=await r.json().catch(()=>({}));
+async function api(tool,params){const q=new URLSearchParams({tool,...params,key:KEY});const r=await fetch(API+'/api/emt?'+q,{cache:'no-store'});const j=await r.json().catch(()=>({}));
  if(!r.ok){dot.className='dot err';throw new Error(r.status===401?'Falta la clave: abre la app con el enlace que lleva ?key=':j.error||'La EMT no responde')}dot.className='dot ok';return j}
 const ARR=new Map();// id -> {data,at,err}
 async function fetchArr(id){id=String(id);try{const d=await api('llegadas',{parada:id});ARR.set(id,{data:d,at:Date.now()})}catch(e){const o=ARR.get(id)||{};ARR.set(id,{...o,err:e.message})}}

@@ -3,6 +3,9 @@ import { TOOLS, checkKey } from './_emt.js';
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'x-key');
+  if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (!checkKey(req)) { res.status(401).json({ error: 'Clave incorrecta' }); return; }
   const u = new URL(req.url, 'http://localhost');
   const t = TOOLS.find(x => x.name === u.searchParams.get('tool'));

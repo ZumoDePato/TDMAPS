@@ -22,4 +22,6 @@ Las credenciales solo viven en Vercel; nunca se guardan en este repositorio.
 
 ## La app (Parada)
 
+También funciona desde GitHub Pages (Settings → Pages → rama main, carpeta raíz): la página llama al puente de Vercel en `tdmaps.vercel.app`. Ábrela con `https://zumodepato.github.io/TDMAPS/?key=TU_MCP_KEY`. La clave nunca va en el repositorio.
+
 La web está en la raíz del proyecto (`index.html`). Ábrela una vez con tu clave, `https://TU-PROYECTO.vercel.app/?key=TU_MCP_KEY`, y añádela a la pantalla de inicio desde Safari. Usa el GPS del móvil, el micrófono de Safari, el mapa de OpenStreetMap (OpenFreeMap) y los datos de la EMT a través de `/api/emt`.
