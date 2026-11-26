@@ -56,6 +56,17 @@ label.q{display:block;font-size:15px;color:var(--mute);margin-bottom:10px;font-w
 #mic svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #mic.on{background:var(--red);animation:lv 1.1s ease-in-out infinite}
 @keyframes lv{50%{transform:scale(1.08);box-shadow:0 0 0 10px rgba(255,69,58,.18)}}
+/* contexto del croquis */
+.crq .cpk{fill:#0f2a1a;opacity:.75}
+.crq .crv{fill:none;stroke:#0f3a5a;stroke-width:3.2;stroke-linecap:round;opacity:.9}
+.crq .crd{fill:none;stroke:#26262d;stroke-linecap:round;stroke-linejoin:round}
+.crq .clm{fill:#4a4a52}
+.crq .ctl{fill:#5d5d66;font-size:7.5px;font-weight:600}
+.crq .cscale{fill:none;stroke:#6b6b73;stroke-width:1.2}
+.crq .cnorth{fill:#6b6b73}
+.crq .cis{fill:#000;stroke:#fff;stroke-width:1;opacity:.85}
+.crq .clin{font:800 10px 'Inter Tight',sans-serif}
+.crq .cwm{fill:#9a9aa2;font-size:7.5px}
 /* billete origen → destino */
 .top{margin-bottom:22px}
 .tk{position:relative;background:linear-gradient(160deg,#101014,#0a0a0d);border:1px solid #1d1d22;border-radius:22px;padding:18px 18px 18px 16px;margin-bottom:30px}
@@ -181,6 +192,32 @@ q.addEventListener('input',()=>{const t=q.value.trim();clearTimeout(gT);if(t.len
 q.addEventListener('keydown',e=>{if(e.key==='Enter'){const b=list.querySelector('[data-i]');b&&b.click()}});
 
 /* mini croquis futurista de la ruta */
+const CTX={roads:[
+ [9,[[40.497,-3.69],[40.478,-3.625],[40.43,-3.603],[40.382,-3.622],[40.356,-3.69],[40.37,-3.758],[40.42,-3.787],[40.47,-3.762],[40.497,-3.69]]],
+ [6,[[40.4664,-3.6886],[40.48,-3.686],[40.497,-3.684]]],
+ [6,[[40.436,-3.645],[40.44,-3.61]]],
+ [6,[[40.4,-3.662],[40.385,-3.635]]],
+ [6,[[40.393,-3.712],[40.37,-3.72]]],
+ [6,[[40.4155,-3.714],[40.408,-3.74],[40.39,-3.77]]],
+ [12,[[40.475,-3.72],[40.476,-3.69],[40.462,-3.664],[40.44,-3.657],[40.415,-3.66],[40.395,-3.67],[40.386,-3.695],[40.395,-3.718],[40.415,-3.7245],[40.44,-3.732],[40.462,-3.727],[40.475,-3.72]]],
+ [9,[[40.4664,-3.6886],[40.4566,-3.6905],[40.446,-3.692],[40.4378,-3.6915],[40.4253,-3.6903],[40.4193,-3.6931],[40.4155,-3.6942],[40.4075,-3.6915],[40.398,-3.693],[40.391,-3.695]]],
+ [7,[[40.4233,-3.7123],[40.42,-3.7058],[40.4197,-3.7016],[40.4188,-3.697],[40.4193,-3.6931]]],
+ [7,[[40.4169,-3.7035],[40.418,-3.699],[40.4193,-3.6931],[40.42,-3.6888],[40.4243,-3.6758],[40.4285,-3.669],[40.431,-3.663],[40.436,-3.645]]],
+ [7,[[40.4233,-3.7123],[40.43,-3.7155],[40.4351,-3.7189],[40.447,-3.728]]],
+ [6,[[40.4169,-3.7035],[40.4155,-3.7074],[40.4155,-3.714]]],
+ [6,[[40.4169,-3.7035],[40.4145,-3.701],[40.4125,-3.6985],[40.4075,-3.6915]]],
+ [6,[[40.4155,-3.7074],[40.411,-3.709],[40.407,-3.711],[40.402,-3.7115],[40.393,-3.712]]],
+ [6,[[40.407,-3.711],[40.404,-3.703],[40.4075,-3.6915],[40.403,-3.676],[40.4,-3.662]]],
+ [6,[[40.43,-3.7155],[40.4265,-3.707],[40.429,-3.702],[40.4277,-3.6955],[40.4253,-3.6903]]],
+ [6,[[40.429,-3.702],[40.433,-3.704],[40.447,-3.7035],[40.4605,-3.6985],[40.475,-3.697]]],
+ [6,[[40.4378,-3.6915],[40.438,-3.677],[40.44,-3.655]]],
+ [5,[[40.4285,-3.669],[40.415,-3.669],[40.401,-3.675]]],
+ [5,[[40.4155,-3.7074],[40.4135,-3.7155],[40.411,-3.722]]],
+ [5,[[40.42,-3.7058],[40.4262,-3.701],[40.433,-3.704]]],
+ [5,[[40.4075,-3.6915],[40.40,-3.698],[40.391,-3.695]]],
+ [5,[[40.4253,-3.6903],[40.4243,-3.6758]]],
+ [5,[[40.446,-3.692],[40.447,-3.7035],[40.444,-3.718]]]],parks:[[[40.4205,-3.6885],[40.4205,-3.6772],[40.4095,-3.6775],[40.4105,-3.6893]],[[40.452,-3.79],[40.447,-3.745],[40.433,-3.736],[40.418,-3.733],[40.405,-3.745],[40.40,-3.79]],[[40.4325,-3.7215],[40.4268,-3.7195],[40.4235,-3.7235],[40.4295,-3.7285]],[[40.4255,-3.7165],[40.4228,-3.7145],[40.4215,-3.7175],[40.4240,-3.7195]]],river:[[40.47,-3.735],[40.445,-3.733],[40.432,-3.7305],[40.418,-3.7235],[40.410,-3.7205],[40.401,-3.7165],[40.393,-3.705],[40.390,-3.696],[40.382,-3.689],[40.37,-3.69]]};
+const LM=[['Sol',40.4169,-3.7035],['Callao',40.42,-3.7058],['Plaza de España',40.4233,-3.7123],['Moncloa',40.4351,-3.7189],['Argüelles',40.43,-3.7155],['Atocha',40.4075,-3.6915],['Cibeles',40.4193,-3.6931],['Colón',40.4253,-3.6903],['Retiro',40.4153,-3.6845],['Nuevos Ministerios',40.446,-3.692],['Plaza de Castilla',40.4664,-3.6886],['Chamartín (estación)',40.4722,-3.6826],['Bernabéu',40.4531,-3.6883],['Metropolitano',40.4362,-3.5995],['Cuatro Caminos',40.447,-3.7035],['Bilbao',40.429,-3.702],['Lavapiés',40.4089,-3.701],['La Latina',40.411,-3.709],['Embajadores',40.404,-3.703],['Legazpi',40.391,-3.695],['Méndez Álvaro',40.396,-3.678],['Goya',40.4243,-3.6758],['Manuel Becerra',40.4285,-3.669],['Avenida de América',40.438,-3.677],['Ópera',40.418,-3.7095],['Palacio Real',40.418,-3.7143],['Templo de Debod',40.424,-3.7178],['Museo del Prado',40.4138,-3.6921],['Reina Sofía',40.408,-3.6945],['Chueca',40.4229,-3.6975],['Malasaña',40.426,-3.7045],['Tribunal',40.4262,-3.701],['Alonso Martínez',40.4277,-3.6955],['Príncipe Pío',40.421,-3.72],['Ciudad Universitaria',40.444,-3.727],['Ventas',40.431,-3.663],['Pacífico',40.401,-3.675],['Tirso de Molina',40.4123,-3.7044],['Antón Martín',40.4125,-3.6985],['Gregorio Marañón',40.4378,-3.6915],['Quevedo',40.433,-3.704],['Tetuán',40.4605,-3.6985],['Aeropuerto T4',40.4919,-3.5932],['Aeropuerto T1',40.4673,-3.5718],['Alcalá de Henares',40.4818,-3.3643],['San Lorenzo de El Escorial',40.5926,-4.1474],['El Escorial',40.5826,-4.1272],['Aranjuez',40.0331,-3.6031],['Getafe',40.3057,-3.7329],['Móstoles',40.3223,-3.8649],['Alcorcón',40.3458,-3.8249],['Leganés',40.3272,-3.7635],['Fuenlabrada',40.2842,-3.7942],['Parla',40.2368,-3.7672],['Pozuelo de Alarcón',40.4351,-3.8136],['Las Rozas',40.4929,-3.8737],['Majadahonda',40.4735,-3.8718],['Boadilla del Monte',40.405,-3.878],['Alcobendas',40.5475,-3.642],['San Sebastián de los Reyes',40.5474,-3.6261],['Tres Cantos',40.6006,-3.7092],['Colmenar Viejo',40.659,-3.765],['Torrejón de Ardoz',40.456,-3.48],['Coslada',40.4238,-3.5613],['San Fernando de Henares',40.4248,-3.5336],['Rivas-Vaciamadrid',40.358,-3.54],['Mejorada del Campo',40.3953,-3.4869],['Arganda del Rey',40.301,-3.438],['Valdemoro',40.1907,-3.6789],['Collado Villalba',40.635,-4.005],['Guadarrama',40.672,-4.089],['Cercedilla',40.74,-4.057],['Navacerrada',40.729,-4.013],['Villaviciosa de Odón',40.358,-3.9],['Navalcarnero',40.289,-4.014]];
 function dec(str,prec=6){let i=0,lat=0,lon=0;const f=10**prec,out=[];while(i<str.length){for(const k of[0,1]){let b,sh=0,res=0;do{b=str.charCodeAt(i++)-63;res|=(b&31)<<sh;sh+=5}while(b>=32);const d=res&1?~(res>>1):res>>1;if(k===0)lat+=d;else lon+=d}out.push([lat/f,lon/f])}return out}
 function croquis(it,O,D){const legs=it.legs;let prev=[O.lat,O.lon];const segs=[];
  legs.forEach((l,i)=>{let pts=[];try{if(l.geom)pts=dec(l.geom,l.precision||6)}catch(e){pts=[]}
@@ -189,14 +226,31 @@ function croquis(it,O,D){const legs=it.legs;let prev=[O.lat,O.lon];const segs=[]
  if(!segs.length)return'';
  const all=segs.flatMap(s=>s.pts).concat([[O.lat,O.lon],[D.lat,D.lon]]);const cl=Math.cos(all[0][0]*Math.PI/180);
  const xs=all.map(p=>p[1]*cl),ys=all.map(p=>-p[0]);const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
- const W=340,H=210,pad=30,k=Math.min((W-2*pad)/Math.max(x1-x0,1e-6),(H-2*pad)/Math.max(y1-y0,1e-6));const ox=(W-(x1-x0)*k)/2,oy=(H-(y1-y0)*k)/2;
+ const W=340,H=250,pad=34,k=Math.min((W-2*pad)/Math.max(x1-x0,1e-6),(H-2*pad)/Math.max(y1-y0,1e-6));const ox=(W-(x1-x0)*k)/2,oy=(H-(y1-y0)*k)/2;
  const P=p=>[(p[1]*cl-x0)*k+ox,(-p[0]-y0)*k+oy];const d=pts=>pts.map((p,j)=>{const[x,y]=P(p);return(j?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)}).join(' ');
  const full=segs.map(s=>d(s.pts)).join(' ').replace(/ M/g,' L');
  const [sx,sy]=P([O.lat,O.lon]),[ex,ey]=P([D.lat,D.lon]);
+ const inb=([la,lo])=>{const[x,y]=P([la,lo]);return x>-40&&x<W+40&&y>-40&&y<H+40};
+ let ctxs='';
+ CTX.parks.forEach(pk=>{if(pk.some(inb))ctxs+=`<path d="${d(pk)}Z" class="cpk"/>`});
+ if(CTX.river.some(inb))ctxs+=`<path d="${d(CTX.river)}" class="crv"/>`;
+ CTX.roads.forEach(([w,a])=>{if(a.some(inb))ctxs+=`<path d="${d(a)}" class="crd" style="stroke-width:${(w>=9?2.2:1.3)}"/>`});
+ const used=[[sx0(),sy0()]];function sx0(){return P([O.lat,O.lon])[0]}function sy0(){return P([O.lat,O.lon])[1]}
+ segs.forEach(s=>{if(s.l.mode!=='WALK'){used.push(P(s.pts[0]),P(s.pts[s.pts.length-1]))}});used.push(P([D.lat,D.lon]));
+ const lms=LM.map(([n,la,lo])=>({n,p:P([la,lo])})).filter(o=>o.p[0]>20&&o.p[0]<W-20&&o.p[1]>40&&o.p[1]<H-26&&used.every(u=>Math.hypot(u[0]-o.p[0],u[1]-o.p[1])>34));
+ const pick=[];lms.forEach(o=>{if(pick.length<6&&pick.every(q=>Math.hypot(q.p[0]-o.p[0],q.p[1]-o.p[1])>48))pick.push(o)});
+ pick.forEach(o=>{ctxs+=`<circle cx="${o.p[0].toFixed(1)}" cy="${o.p[1].toFixed(1)}" r="1.6" class="clm"/><text x="${o.p[0].toFixed(1)}" y="${(o.p[1]-5).toFixed(1)}" text-anchor="middle" class="ct ctl">${esc(o.n.toUpperCase())}</text>`});
+ const mpp=111320/k;const nice=[50,100,200,250,500,1000,2000,5000,10000].find(v=>v/mpp>=46)||10000;const bl=nice/mpp;
+ ctxs+=`<path d="M18 30h${bl.toFixed(1)}M18 27v6M${(18+bl).toFixed(1)} 27v6" class="cscale"/><text x="18" y="23" class="ct ct3">${nice>=1000?nice/1000+' KM':nice+' M'}</text>`;
+ ctxs+=`<g transform="translate(${W-24} 30)"><path d="M0 -10L5 4L0 1L-5 4Z" class="cnorth"/><text y="15" text-anchor="middle" class="ct ct3">N</text></g>`;
  let paths='',nodes='',delay=0;
  segs.forEach((s,i)=>{const walk=s.l.mode==='WALK',c=walk?'#9a9aa2':color(s.l),dd=d(s.pts);
-  if(walk)paths+=`<path d="${dd}" class="cw" style="animation-delay:${delay}s"/>`;
+  const sp=s.pts.map(P);let tot=0;const cum=[0];for(let j=1;j<sp.length;j++){tot+=Math.hypot(sp[j][0]-sp[j-1][0],sp[j][1]-sp[j-1][1]);cum.push(tot)}
+  let mid=sp[0];{const h=tot/2;let j=1;while(j<sp.length-1&&cum[j]<h)j++;const t=(h-cum[j-1])/((cum[j]-cum[j-1])||1);mid=[sp[j-1][0]+(sp[j][0]-sp[j-1][0])*t,sp[j-1][1]+(sp[j][1]-sp[j-1][1])*t]}
+  if(walk){paths+=`<path d="${dd}" class="cw" style="animation-delay:${delay}s"/>`;{const po=P([O.lat,O.lon]),pd=P([D.lat,D.lon]);if((s.l.min||0)>=2&&Math.hypot(mid[0]-po[0],mid[1]-po[1])>42&&Math.hypot(mid[0]-pd[0],mid[1]-pd[1])>60)nodes+=`<text x="${(mid[0]+6).toFixed(1)}" y="${(mid[1]+3).toFixed(1)}" class="ct cwm">${s.l.min}′ A PIE</text>`}}
   else paths+=`<path d="${dd}" class="cg" stroke="${c}"/><path d="${dd}" pathLength="1" class="cl" stroke="${c}" style="animation-delay:${delay}s"/>`;
+  if(!walk){(s.l.inter||[]).forEach(p=>{const[x,y]=P([p[0],p[1]]);nodes+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.9" class="cis"/>`});
+   const lbl=String(s.l.line||'').replace(/^L(?=\d)/i,'');const bw=Math.max(18,lbl.length*7+10);nodes+=`<g transform="translate(${mid[0].toFixed(1)} ${mid[1].toFixed(1)})"><rect x="${-bw/2}" y="-8" width="${bw}" height="16" rx="5" fill="${c}"/><text y="4" text-anchor="middle" class="clin" fill="${ink(c)}">${esc(lbl)}</text></g>`}
   delay+=.45;
   if(!walk){const[a,b]=P(s.pts[0]),[c2,d2]=P(s.pts[s.pts.length-1]);
    nodes+=`<circle cx="${a.toFixed(1)}" cy="${b.toFixed(1)}" r="4" class="cn" stroke="${c}"/><circle cx="${c2.toFixed(1)}" cy="${d2.toFixed(1)}" r="4" class="cn" stroke="${c}"/>`;
@@ -210,7 +264,7 @@ function croquis(it,O,D){const legs=it.legs;let prev=[O.lat,O.lon];const segs=[]
  <rect width="${W}" height="${H}" fill="url(#gr)"/><rect width="${W}" height="${H}" fill="url(#vg)"/>
  <path d="M8 22V8h14M${W-22} 8h14v14M8 ${H-22}v14h14M${W-22} ${H-8}h14v-14" class="hud"/>
  <text x="14" y="${H-14}" class="ct ct3">${O.lat.toFixed(4)}°N ${Math.abs(O.lon).toFixed(4)}°W</text><text x="${W-14}" y="${H-14}" text-anchor="end" class="ct ct3">${(it.min||0)} MIN · ${segs.filter(s=>s.l.mode!=='WALK').length} LÍNEA${segs.filter(s=>s.l.mode!=='WALK').length===1?'':'S'}</text>
- ${paths}${nodes}
+ ${ctxs}${paths}${nodes}
  <circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="9" class="me-r"/><circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="5" fill="#fff"/>${tag(sx,sy,'TÚ',sx>W*.7?'end':sx<W*.3?'start':'middle')}${tag(ex,ey-36,esc(String(D.n).toUpperCase().slice(0,24)),ex>W*.7?'end':ex<W*.3?'start':'middle').replace('ct ct2','ct ct2 ctd')}
  <circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="10" class="de-r"/><circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="5" fill="#ff453a"/>
  <g class="comet"><circle r="7" fill="#fff" opacity=".25" filter="url(#gl)"/><circle r="2.8" fill="#fff"/><animateMotion dur="${Math.min(7,2.5+segs.length*.8).toFixed(1)}s" begin="${delay.toFixed(2)}s" repeatCount="indefinite" path="${full}" keyPoints="0;1" keyTimes="0;1" calcMode="linear"/></g>
