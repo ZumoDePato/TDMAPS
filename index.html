@@ -273,7 +273,7 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()}
 /* ---------- mapa ---------- */
 const STY={claro:'https://tiles.openfreemap.org/styles/positron',detallado:'https://tiles.openfreemap.org/styles/liberty',vivo:'https://tiles.openfreemap.org/styles/bright',noche:'https://tiles.openfreemap.org/styles/positron'};
 const map=new maplibregl.Map({container:'map',style:STY[P.style]||STY.claro,center:[-3.7035,40.4169],zoom:11.6,minZoom:8.6,maxZoom:19.5,maxBounds:[[-4.75,39.8],[-2.85,41.25]],dragRotate:false,pitchWithRotate:false,attributionControl:{compact:true},fadeDuration:150});
-map.touchZoomRotate.disableRotation();map.keyboard.disableRotation();
+map.touchZoomRotate.disableRotation();if(map.touchPitch)map.touchPitch.disable();map.keyboard.disableRotation();
 const STOPS=new Map();
 function stopsGeo(){const fav=new Set(P.favs.map(f=>String(f.id)));return{type:'FeatureCollection',features:[...STOPS.values()].filter(s=>!fav.has(s.id)).map(s=>({type:'Feature',properties:{id:s.id,n:s.nombre},geometry:{type:'Point',coordinates:[s.lon,s.lat]}}))}}
 function addLayers(){if(map.getSource('stops'))return;
@@ -387,27 +387,38 @@ const hhmm=iso=>iso?new Date(iso).toLocaleTimeString('es-ES',{hour:'2-digit',min
 const minsTo=iso=>iso?Math.round((new Date(iso)-Date.now())/60000):null;
 async function apiRuta(params){const q=new URLSearchParams({...params,key:KEY});const r=await fetch(API+'/api/ruta?'+q);const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'No hay ruta');return j}
 function decode(str,prec=6){let i=0,lat=0,lon=0;const f=10**prec,out=[];while(i<str.length){for(const k of[0,1]){let b,sh=0,res=0;do{b=str.charCodeAt(i++)-63;res|=(b&31)<<sh;sh+=5}while(b>=32);const d=res&1?~(res>>1):res>>1;if(k===0)lat+=d;else lon+=d}out.push([lon/f,lat/f])}return out}
-function routeLayer(){if(map.getSource('route'))return;map.addSource('route',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
- map.addLayer({id:'route-case',type:'line',source:'route',filter:['!=',['get','walk'],true],layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#ffffff','line-width':9}});
- map.addLayer({id:'route-line',type:'line',source:'route',filter:['!=',['get','walk'],true],layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':['get','c'],'line-width':5.5}});
- map.addLayer({id:'route-walk',type:'line',source:'route',filter:['==',['get','walk'],true],layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#5f6b7a','line-width':4,'line-dasharray':[0.1,1.8]}})}
+function routeLayer(){if(map.getSource('route'))return;const E={type:'FeatureCollection',features:[]};
+ map.addSource('veil',{type:'geojson',data:E});map.addSource('route',{type:'geojson',data:E});map.addSource('rstops',{type:'geojson',data:E});
+ map.addLayer({id:'veil',type:'fill',source:'veil',paint:{'fill-color':document.body.classList.contains('night')?'#000':'#ffffff','fill-opacity':.42}});
+ map.addLayer({id:'route-glow',type:'line',source:'route',filter:['!=',['get','walk'],true],layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':['get','c'],'line-width':['interpolate',['linear'],['zoom'],10,10,16,22],'line-blur':8,'line-opacity':.35}});
+ map.addLayer({id:'route-case',type:'line',source:'route',filter:['!=',['get','walk'],true],layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#ffffff','line-width':['interpolate',['linear'],['zoom'],10,6,16,13]}});
+ map.addLayer({id:'route-line',type:'line',source:'route',filter:['!=',['get','walk'],true],layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':['get','c'],'line-width':['interpolate',['linear'],['zoom'],10,3.5,16,8]}});
+ map.addLayer({id:'route-walk',type:'line',source:'route',filter:['==',['get','walk'],true],layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#4b5563','line-width':['interpolate',['linear'],['zoom'],10,3,16,5],'line-dasharray':[0,2,0]}});
+ map.addLayer({id:'rstops',type:'circle',source:'rstops',minzoom:12,paint:{'circle-radius':['interpolate',['linear'],['zoom'],12,2.5,16,5],'circle-color':'#ffffff','circle-stroke-color':['get','c'],'circle-stroke-width':['interpolate',['linear'],['zoom'],12,1.5,16,2.5]}});
+ try{map.addLayer({id:'rstops-lab',type:'symbol',source:'rstops',minzoom:15,layout:{'text-field':['get','n'],'text-size':11,'text-offset':[0,1.1],'text-anchor':'top','text-font':['Noto Sans Regular'],'text-optional':true},paint:{'text-color':'#374151','text-halo-color':'#fff','text-halo-width':1.4}})}catch(e){}}
+/* puntos que avanzan en los tramos a pie */
+let antT=null;const ANTS=[[0,2,0],[.5,2,1.5],[1,2,1],[1.5,2,.5]];
+function antsOn(){clearInterval(antT);if(document.body.classList.contains('calm')||matchMedia('(prefers-reduced-motion: reduce)').matches)return;let k=0;antT=setInterval(()=>{if(!map.getLayer('route-walk')){clearInterval(antT);return}map.setPaintProperty('route-walk','line-dasharray',ANTS[k++%ANTS.length])},140)}
 map.on('style.load',()=>{routeLayer();if(RT&&RT.sel!=null)drawRoute(RT.its[RT.sel])});
 let RT=null,destMk=null;
 let routeMk=[],comet=null;
-function clearRoute(){const s=map.getSource('route');if(s)s.setData({type:'FeatureCollection',features:[]});if(destMk){destMk.remove();destMk=null}routeMk.forEach(m=>m.remove());routeMk=[];if(comet){cancelAnimationFrame(comet.raf);comet.mk.remove();comet=null}}
+function clearRoute(){const E={type:'FeatureCollection',features:[]};['route','veil','rstops'].forEach(n=>{const s=map.getSource(n);if(s)s.setData(E)});clearInterval(antT);if(map.getPitch&&map.getPitch()>0)map.easeTo({pitch:0,duration:600});if(destMk){destMk.remove();destMk=null}routeMk.forEach(m=>m.remove());routeMk=[];if(comet){cancelAnimationFrame(comet.raf);comet.mk.remove();comet=null}}
 const legCoords=l=>{let co=l.geom?decode(l.geom,l.precision):[];if(co.length<2&&l.fromLL&&l.toLL)co=[[l.fromLL[1],l.fromLL[0]],[l.toLL[1],l.toLL[0]]];return co};
 function mkEl(cls,html,label){const d=document.createElement('div');d.className=cls;if(html)d.innerHTML=html;if(label){d.setAttribute('role','img');d.setAttribute('aria-label',label)}return d}
-function drawRoute(it){routeLayer();clearRoute();const feats=[],all=[];const b=new maplibregl.LngLatBounds();
+function drawRoute(it){routeLayer();clearRoute();const feats=[],all=[],stopsF=[];const b=new maplibregl.LngLatBounds();
  it.legs.forEach(l=>{const co=legCoords(l);co.forEach(p=>{b.extend(p);all.push(p)});const c=l.color||MODE(l.mode)[2];
   feats.push({type:'Feature',properties:{walk:l.mode==='WALK',c},geometry:{type:'LineString',coordinates:co}});
+  if(l.mode!=='WALK')(l.inter||[]).forEach(p=>stopsF.push({type:'Feature',properties:{c,n:p[2]},geometry:{type:'Point',coordinates:[p[1],p[0]]}}));
   if(l.mode!=='WALK'&&co.length>1){
    routeMk.push(new maplibregl.Marker({element:mkEl('rstop',`<i style="border-color:${c}"></i><span>${esc(l.from||'')}</span>`,'Subes en '+(l.from||''))}).setLngLat(co[0]).addTo(map));
    routeMk.push(new maplibregl.Marker({element:mkEl('rstop end',`<i style="border-color:${c}"></i><span>${esc(l.to||'')}</span>`,'Bajas en '+(l.to||''))}).setLngLat(co[co.length-1]).addTo(map));
    const mid=co[Math.floor(co.length/2)];const le=mkEl('rlabel',`${MODE(l.mode)[1]}<b>${esc(l.line||'')}</b>`,MODE(l.mode)[0]+' '+(l.line||''));le.style.background=c;le.style.color='#fff';routeMk.push(new maplibregl.Marker({element:le,offset:[0,-2]}).setLngLat(mid).addTo(map))}});
- map.getSource('route').setData({type:'FeatureCollection',features:feats});
+ map.getSource('route').setData({type:'FeatureCollection',features:feats});map.getSource('rstops').setData({type:'FeatureCollection',features:stopsF});
+ map.getSource('veil').setData({type:'Feature',properties:{},geometry:{type:'Polygon',coordinates:[[[-6,38.5],[-1.5,38.5],[-1.5,42.5],[-6,42.5],[-6,38.5]]]}});
+ if(map.getLayer('veil'))map.setPaintProperty('veil','fill-color',document.body.classList.contains('night')?'#000':'#ffffff');antsOn();
  routeMk.push(new maplibregl.Marker({element:mkEl('rorig','','Salida')}).setLngLat([RT.O.lon,RT.O.lat]).addTo(map));
  destMk=new maplibregl.Marker({element:mkEl('rdest',`<svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12.5A7 7 0 0 0 5 9.5C5 15.8 12 22 12 22z"/><circle cx="12" cy="9.5" r="2.6" fill="#fff"/></svg>`,'Destino '+RT.D.n),anchor:'bottom'}).setLngLat([RT.D.lon,RT.D.lat]).addTo(map);
- if(!b.isEmpty())map.fitBounds(b,{padding:{top:110,bottom:card.offsetHeight+40,left:50,right:50},maxZoom:16,duration:900});
+ if(!b.isEmpty()){map.fitBounds(b,{padding:{top:110,bottom:card.offsetHeight+40,left:50,right:50},maxZoom:16,duration:900});if(!document.body.classList.contains('calm'))map.once('moveend',()=>{if(RT)map.easeTo({pitch:42,duration:900})})}
  /* cometa que recorre la ruta */
  if(all.length>1&&!document.body.classList.contains('calm')&&!matchMedia('(prefers-reduced-motion: reduce)').matches){const seg=[0];for(let i=1;i<all.length;i++)seg.push(seg[i-1]+Math.hypot(all[i][0]-all[i-1][0],(all[i][1]-all[i-1][1])*1.3));const L=seg[seg.length-1]||1;
   const mk=new maplibregl.Marker({element:mkEl('comet')}).setLngLat(all[0]).addTo(map);comet={mk,raf:0};const t0=performance.now(),dur=Math.min(7000,Math.max(3500,all.length*12));

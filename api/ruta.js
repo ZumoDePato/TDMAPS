@@ -29,6 +29,7 @@ function simplify(it) {
       min: mins(l.duration),
       dist: l.distance != null ? Math.round(l.distance) : null,
       stops: Array.isArray(l.intermediateStops) ? l.intermediateStops.length + 1 : null,
+      inter: Array.isArray(l.intermediateStops) ? l.intermediateStops.slice(0, 60).filter(p => p && p.lat != null).map(p => [p.lat, p.lon, p.name || '']) : [],
       realTime: !!l.realTime,
       geom: l.legGeometry?.points || null,
       precision: l.legGeometry?.precision || 6,
