@@ -117,6 +117,13 @@ h2{font-size:21px;line-height:1.15;margin:0 0 2px;font-weight:700;text-wrap:bala
 #vSub{color:var(--mute);text-align:center;font-size:15px;max-width:440px}
 #vBtns{display:grid;gap:10px;width:100%;max-width:420px}
 #vClose{position:absolute;top:max(14px,env(safe-area-inset-top));right:14px}
+/* rutas y avisos */
+.steps{margin:6px 0 4px;position:relative}
+.st{display:flex;gap:12px;align-items:flex-start;padding:8px 0;position:relative}
+.st .mi{width:34px;height:34px;border-radius:50%}
+.st:not(:last-child)::after{content:"";position:absolute;left:16px;top:44px;bottom:-6px;width:2px;background:var(--hair)}
+#alert{position:fixed;left:12px;right:12px;top:calc(max(10px,env(safe-area-inset-top)) + 56px);z-index:15;background:var(--ink);color:var(--ui);border-radius:18px;padding:14px 16px;display:flex;gap:10px;align-items:center;font-weight:600;box-shadow:var(--sh);transform:translateY(-160%);transition:transform .45s var(--ease),visibility 0s .45s}
+#alert{pointer-events:none;visibility:hidden}#alert.show{transform:none;pointer-events:auto;visibility:visible;transition:transform .45s var(--ease),visibility 0s}#alert.urg{background:#e2362b;color:#fff}
 /* solo mapa */
 #nav{transition:transform .4s var(--ease)}
 body.solo #card{transform:translateY(calc(100% + 130px))}
@@ -135,6 +142,7 @@ body.solo #restore{transform:translate(-50%,0)}
 <header id="top"><button class="search" id="q"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>¿A dónde vas?<span class="dot" id="dot"></span></button></header>
 <button id="locate" aria-label="Mi ubicación"><svg class="i" viewBox="0 0 24 24"><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/></svg></button>
 <section id="card"><div class="grab" id="grab"></div><div id="body"></div></section>
+<div id="alert" role="status" aria-live="assertive"></div>
 <button id="restore" aria-label="Mostrar panel"><svg class="i" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg><span id="rtxt">Mostrar</span></button>
 <nav id="nav">
  <button class="nv on" id="tMap"><svg class="i" viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Mapa</button>
@@ -225,13 +233,13 @@ let gy=null;$('#grab').addEventListener('pointerdown',e=>{gy=e.clientY});addEven
 $("#restore").onclick=()=>{solo(false);body.scrollTop=0};
 let toastT;function toast(t){body.insertAdjacentHTML('afterbegin',`<div class="warn enter">${esc(t)}</div>`);clearTimeout(toastT);toastT=setTimeout(()=>{const w=body.querySelector('.warn');w&&w.remove()},7000)}
 function render(html){body.innerHTML=html;body.firstElementChild&&body.firstElementChild.classList.add('enter');body.scrollTop=0}
-const rerender=()=>{if(view==='home')renderHome();else if(view==='stop'&&cur)paintStop();else if(view==='compare')paintCompare()};
+const rerender=()=>{if(view==='route')return;if(view==='home')renderHome();else if(view==='stop'&&cur)paintStop();else if(view==='compare')paintCompare()};
 const hav=(a,b)=>{const R=6371,r=Math.PI/180,dl=(b.lat-a.lat)*r,dn=(b.lon-a.lon)*r,x=Math.sin(dl/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(x))};
 const walkMin=s=>ME&&s&&s.lat!=null?Math.max(1,Math.round(hav(ME,s)*1.3/4.8*60)):null;
 
 function nextBus(){const cands=[];const scan=ids=>{for(const id of ids){const st=STOPS.get(id)||P.favs.find(f=>String(f.id)===id);const w=walkMin(st)||0;for(const g of group(ARR.get(id)&&ARR.get(id).data)){const m=g.m.find(x=>x>=w);if(m!=null)cands.push({id,st,g,m,w})}}};
  scan(nearMe);if(!cands.length)scan(P.favs.map(f=>String(f.id)));return cands.sort((a,b)=>a.m-b.m)[0]}
-function renderHome(){view='home';cur=null;const h=nextBus();const loading=![...ARR.values()].some(a=>a.data);
+function renderHome(){view='home';cur=null;if(typeof clearRoute==='function'&&!WATCH)clearRoute();const h=nextBus();const loading=![...ARR.values()].some(a=>a.data);
  const name=x=>{const f=P.favs.find(f=>String(f.id)===x.id);return(f&&(f.alias||f.nombre))||(x.st&&x.st.nombre)||'Parada '+x.id};
  const near=nearMe.map(id=>({id,st:STOPS.get(id),g:group(ARR.get(id)&&ARR.get(id).data)}));
  render(`<div>${loading?'<p class="sub">Tu próximo bus</p><div class="skel"></div>':h?`<p class="sub">Tu próximo bus</p>
@@ -255,7 +263,7 @@ function paintStop(){const id=cur,a=ARR.get(id),d=a&&a.data,g=group(d),s=STOPS.g
  <p class="fresh">${a&&a.at?'En directo · actualizado a las '+new Date(a.at).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):''}</p></div>`);
  $('#cl').onclick=()=>{renderHome()};
  $('#fv').onclick=()=>{if(fav)P.favs=P.favs.filter(f=>String(f.id)!==id);else{const o=s||{};P.favs.push({id,nombre:o.nombre||name,lat:o.lat,lon:o.lon})}save();drawFavs();paintStop()};
- $('#go').onclick=()=>{const t=s||fav;if(t&&t.lat!=null)openCompare({n:name,lat:t.lat,lon:t.lon})};setH()}
+ $('#go').onclick=()=>{const t=s||fav;if(t&&t.lat!=null)openRoute({n:name,lat:t.lat,lon:t.lon})};setH()}
 
 /* ---------- comparar formas de llegar ---------- */
 const TAR={taxiB1:2.55,taxiB2:3.20,taxiKm1:1.40,taxiKm2:1.60,bus:1.50,bici:.50,moto:.27,coche:.19,inter:3.00};
@@ -288,8 +296,74 @@ function paintCompare(){const os=origins();if(!os.length)return;const O=os[Math.
  body.querySelectorAll('[data-by]').forEach(b=>b.onclick=()=>{P.sortBy=b.dataset.by;save();paintCompare()});
  const b=new maplibregl.LngLatBounds([O.lon,O.lat],[O.lon,O.lat]).extend([D.lon,D.lat]);map.fitBounds(b,{padding:{top:90,bottom:card.offsetHeight+40,left:40,right:40},maxZoom:15,duration:900});setH()}
 
+/* ---------- rutas en transporte público (Transitous) ---------- */
+IC.metro='<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 16V8l4 5 4-5v8"/></svg>';
+IC.bell='<svg class="i" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>';
+const MODE=m=>/SUBWAY|METRO/.test(m)?['Metro',IC.metro,'#e2362b']:/TRAM|LIGHT/.test(m)?['Metro Ligero',IC.train,'#0a8a5f']:/RAIL|SUBURBAN|TRAIN/.test(m)?['Cercanías',IC.train,'#d7263d']:/COACH/.test(m)?['Interurbano',IC.bus,'#0a8a5f']:/BUS/.test(m)?['Bus',IC.bus,P.acc]:/BIKE/.test(m)?['Bici',IC.bike,'#0a8a5f']:/CAR/.test(m)?['Coche',IC.car,'#555']:['Andando',IC.walk,'#8a96a3'];
+const hhmm=iso=>iso?new Date(iso).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}):'';
+const minsTo=iso=>iso?Math.round((new Date(iso)-Date.now())/60000):null;
+async function apiRuta(params){const q=new URLSearchParams({...params,key:KEY});const r=await fetch(API+'/api/ruta?'+q);const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'No hay ruta');return j}
+function decode(str,prec=6){let i=0,lat=0,lon=0;const f=10**prec,out=[];while(i<str.length){for(const k of[0,1]){let b,sh=0,res=0;do{b=str.charCodeAt(i++)-63;res|=(b&31)<<sh;sh+=5}while(b>=32);const d=res&1?~(res>>1):res>>1;if(k===0)lat+=d;else lon+=d}out.push([lon/f,lat/f])}return out}
+function routeLayer(){if(map.getSource('route'))return;map.addSource('route',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+ map.addLayer({id:'route-case',type:'line',source:'route',filter:['!=',['get','walk'],true],layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#ffffff','line-width':9}});
+ map.addLayer({id:'route-line',type:'line',source:'route',filter:['!=',['get','walk'],true],layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':['get','c'],'line-width':5.5}});
+ map.addLayer({id:'route-walk',type:'line',source:'route',filter:['==',['get','walk'],true],layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#5f6b7a','line-width':4,'line-dasharray':[0.1,1.8]}})}
+map.on('style.load',()=>{routeLayer();if(RT&&RT.sel!=null)drawRoute(RT.its[RT.sel])});
+let RT=null,destMk=null;
+function clearRoute(){const s=map.getSource('route');if(s)s.setData({type:'FeatureCollection',features:[]});if(destMk){destMk.remove();destMk=null}}
+function drawRoute(it){routeLayer();const feats=[];const b=new maplibregl.LngLatBounds();
+ for(const l of it.legs){let co=l.geom?decode(l.geom,l.precision):[];if(co.length<2&&l.fromLL&&l.toLL)co=[[l.fromLL[1],l.fromLL[0]],[l.toLL[1],l.toLL[0]]];co.forEach(p=>b.extend(p));
+  feats.push({type:'Feature',properties:{walk:l.mode==='WALK',c:l.color||MODE(l.mode)[2]},geometry:{type:'LineString',coordinates:co}})}
+ map.getSource('route').setData({type:'FeatureCollection',features:feats});
+ if(destMk)destMk.remove();const d=document.createElement('div');d.style.cssText='width:18px;height:18px;border-radius:50%;background:#e2362b;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)';destMk=new maplibregl.Marker({element:d}).setLngLat([RT.D.lon,RT.D.lat]).addTo(map);
+ if(!b.isEmpty())map.fitBounds(b,{padding:{top:90,bottom:card.offsetHeight+30,left:40,right:40},maxZoom:16,duration:900})}
+const chain=it=>it.legs.filter(l=>!(l.mode==='WALK'&&l.min<1)).map((l,i)=>(i?'<span class="nx">›</span>':'')+(l.mode==='WALK'?`<span class="nx" style="display:inline-flex;align-items:center;gap:2px">${IC.walk}${l.min}</span>`:`<span class="badge" style="background:${l.color||MODE(l.mode)[2]};gap:3px;display:inline-flex;align-items:center">${MODE(l.mode)[1].replace('class="i"','class="i" style="width:14px;height:14px"')}${esc(l.line||'')}</span>`)).join(' ');
+function origin(){return ME?{n:'Mi ubicación',lat:ME.lat,lon:ME.lon}:(P.favs[0]&&P.favs[0].lat!=null?{n:P.favs[0].alias||P.favs[0].nombre,lat:P.favs[0].lat,lon:P.favs[0].lon}:{n:'Sol',lat:40.4169,lon:-3.7035})}
+async function openRoute(D,opts={}){solo(false);view='route';stopWatch();RT={D,O:origin(),its:null,sel:null};card.classList.add('big');
+ render(`<div><div class="hd"><div class="grow"><h2>A ${esc(D.n)}</h2><p class="sub">Desde ${esc(RT.O.n)}</p></div><button class="rb" id="cl" aria-label="Cerrar">${IC.x}</button></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>`);
+ $('#cl').onclick=closeRoute;setH();
+ try{const j=await apiRuta({from:RT.O.lat+','+RT.O.lon,to:D.lat+','+D.lon});if(view!=='route'||RT.D!==D)return;RT.its=(j.itinerarios||[]).filter(i=>i.legs.some(l=>l.mode!=='WALK'));RT.walk=(j.directo||[])[0]||null;paintRoutes();
+  if(opts.speak&&RT.its[0])say(summary(RT.its[0]))}
+ catch(e){if(view!=='route')return;render(`<div><div class="hd"><div class="grow"><h2>A ${esc(D.n)}</h2></div><button class="rb" id="cl" aria-label="Cerrar">${IC.x}</button></div><div class="warn">${esc(e.message)}</div><button class="btn" id="oth">Ver taxi, bici, andar…</button></div>`);$('#cl').onclick=closeRoute;$('#oth').onclick=()=>openCompare(D)}}
+function closeRoute(){clearRoute();stopWatch();RT=null;card.classList.remove('big');renderHome()}
+function paintRoutes(){view='route';const its=RT.its;
+ render(`<div><div class="hd"><div class="grow"><h2>A ${esc(RT.D.n)}</h2><p class="sub">Desde ${esc(RT.O.n)} · ${its.length} rutas</p></div><button class="rb" id="cl" aria-label="Cerrar">${IC.x}</button></div>
+ ${its.length?its.map((it,i)=>{const f=it.legs.find(l=>l.mode!=='WALK');const leave=minsTo(it.start);return `<button class="row" data-i="${i}" style="display:block"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">${chain(it)}</span><span class="min">${it.min}<small>min</small></span></div>
+  <div class="nx" style="margin-top:4px;white-space:normal">${leave!=null&&leave<=1?'Sal ya':leave!=null?'Sal en '+leave+' min':''} · llegas ${hhmm(it.end)}${f?' · '+esc(MODE(f.mode)[0])+' '+esc(f.line||'')+' desde '+esc(f.from||''):''}</div></button>`}).join(''):'<p class="sub">No encuentro rutas en transporte público ahora mismo.</p>'}
+ ${RT.walk?`<div class="row"><span class="mi">${IC.walk}</span><div class="grow"><b>Andando</b></div><span class="min">${RT.walk.min}<small>min</small></span></div>`:''}
+ <button class="btn soft" id="oth">Taxi, Uber, bici, moto… (precios)</button>
+ <p class="fresh">Rutas de Transitous con datos abiertos del transporte público.</p></div>`);
+ $('#cl').onclick=closeRoute;$('#oth').onclick=()=>openCompare(RT.D);
+ body.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{RT.sel=+b.dataset.i;paintStep()});
+ if(its[0])drawRoute(its[0]);setH()}
+function stepText(l,i,legs){const nx=legs[i+1];
+ if(l.mode==='WALK'){const to=i===legs.length-1?RT.D.n:(nx&&nx.from)||l.to;return{ic:IC.walk,t:`Anda ${Math.max(1,l.min)} min hasta ${esc(to)}`,s:l.dist?l.dist+' m':''}}
+ const [mn,ic,c]=MODE(l.mode);return{ic,c:l.color||c,t:`Coge ${mn==='Metro'?'el Metro línea':mn==='Cercanías'?'el Cercanías':mn==='Metro Ligero'?'el Metro Ligero':'el '+mn.toLowerCase()} <b>${esc(l.line||'')}</b>${l.headsign?' dirección <b>'+esc(l.headsign)+'</b>':''}`,s:`En ${esc(l.from||'')}${l.track?' · vía '+esc(l.track):''} · sale ${hhmm(l.dep)}${l.realTime?' (en directo)':''}${l.stops?' · '+l.stops+' paradas':''} · bájate en <b>${esc(l.to||'')}</b>`}}
+function summary(it){const parts=[];it.legs.forEach((l,i)=>{if(l.mode==='WALK'){if(l.min>=1&&i<it.legs.length-1)parts.push(`anda ${l.min} minutos hasta ${it.legs[i+1].from||l.to}`)}else{const mn=MODE(l.mode)[0];parts.push(`coge ${mn==='Metro'?'la línea '+(l.line||'')+' de metro':'el '+mn.toLowerCase()+' '+(l.line||'')}${l.headsign?' dirección '+l.headsign:''} y bájate en ${l.to}`)}});return(parts.join(', ')+`. Llegas a las ${hhmm(it.end)}.`).replace(/^./,c=>c.toUpperCase())}
+function paintStep(){view='route';const it=RT.its[RT.sel],legs=it.legs.filter(l=>!(l.mode==='WALK'&&l.min<1));drawRoute(it);const leave=minsTo(it.start);
+ render(`<div><div class="hd"><button class="rb" id="bk" aria-label="Volver"><svg class="i" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button><div class="grow"><h2>${it.min} min · llegas ${hhmm(it.end)}</h2><p class="sub">${leave!=null&&leave<=1?'Sal ya':'Sal a las '+hhmm(it.start)} · ${(()=>{const n=Math.max(0,it.legs.filter(l=>l.mode!=='WALK').length-1);return n?n+(n>1?' transbordos':' transbordo'):'sin transbordos'})()}</p></div></div>
+ <div class="steps">${legs.map((l,i)=>{const x=stepText(l,i,legs);return `<div class="st"><span class="mi" style="${x.c?'background:'+x.c+';color:#fff':''}">${x.ic}</span><div class="grow"><div>${x.t}</div>${x.s?`<div class="nx" style="white-space:normal">${x.s}</div>`:''}</div></div>`}).join('')}
+ <div class="st"><span class="mi" style="background:#e2362b;color:#fff">${IC.pin}</span><div class="grow"><b>${esc(RT.D.n)}</b></div></div></div>
+ <button class="btn" id="watch">${IC.bell}${WATCH&&WATCH.it===it?'Avisos activados':'Avísame durante el viaje'}</button>
+ <button class="btn soft" id="read">Léemela en voz alta</button></div>`);
+ $('#bk').onclick=paintRoutes;$('#read').onclick=()=>say(summary(it));
+ $('#watch').onclick=()=>{if(WATCH&&WATCH.it===it){stopWatch();paintStep()}else{startWatch(it);paintStep()}};setH()}
+
+/* ---------- avisos emergentes ---------- */
+let WATCH=null;
+function banner(t,urgent){const b=$('#alert');b.innerHTML=`${IC.bell}<span>${esc(t)}</span>`;b.classList.toggle('urg',!!urgent);b.classList.add('show');clearTimeout(b._t);b._t=setTimeout(()=>b.classList.remove('show'),9000);if(P.speak)say(t,true)}
+function startWatch(it){stopWatch();const first=it.legs.find(l=>l.mode!=='WALK');WATCH={it,done:new Set(),t:setInterval(()=>tick(),10000)};banner('Avisos activados. Te aviso cuando tengas que salir, coger y bajarte.');tick()}
+function stopWatch(){if(WATCH){clearInterval(WATCH.t);WATCH=null}}
+function tick(){if(!WATCH)return;const it=WATCH.it,d=WATCH.done,once=(k,t,u)=>{if(!d.has(k)){d.add(k);banner(t,u)}};
+ const lv=minsTo(it.start);if(lv!=null){if(lv<=3&&lv>1)once('leave3',`Sal en ${lv} minutos.`);if(lv<=1&&lv>-3)once('leave0','Sal ya para no perder la conexión.',true)}
+ it.legs.forEach((l,i)=>{if(l.mode==='WALK')return;const m=minsTo(l.dep);if(m!=null&&m<=2&&m>=0)once('dep'+i,`${MODE(l.mode)[0]} ${l.line||''}${l.headsign?' dirección '+l.headsign:''} sale en ${m<=0?'nada':m+' min'} de ${l.from}.`,true);
+  if(ME&&l.toLL&&hav(ME,{lat:l.toLL[0],lon:l.toLL[1]})<.35)once('off'+i,`Prepárate: bájate en ${l.to}.`,true);
+  const a=minsTo(l.arr);if(!ME&&a!=null&&a<=1&&a>=0)once('offT'+i,`Bájate ya: ${l.to}.`,true)});
+ const e=minsTo(it.end);if(e!=null&&e<-5)stopWatch()}
+
 /* ---------- búsqueda ---------- */
 const PLACES=[['Sol',40.4169,-3.7035],['Callao',40.42,-3.7058],['Plaza de España',40.4233,-3.7123],['Moncloa',40.4351,-3.7189],['Argüelles',40.43,-3.7155],['Atocha',40.4075,-3.6915],['Cibeles',40.4193,-3.6931],['Colón',40.4253,-3.6903],['Retiro',40.4153,-3.6845],['Nuevos Ministerios',40.446,-3.692],['Plaza de Castilla',40.4664,-3.6886],['Chamartín (estación)',40.4722,-3.6826],['Bernabéu',40.4531,-3.6883],['Metropolitano',40.4362,-3.5995],['Cuatro Caminos',40.447,-3.7035],['Bilbao',40.429,-3.702],['Lavapiés',40.4089,-3.701],['La Latina',40.411,-3.709],['Embajadores',40.404,-3.703],['Legazpi',40.391,-3.695],['Méndez Álvaro',40.396,-3.678],['Goya',40.4243,-3.6758],['Manuel Becerra',40.4285,-3.669],['Avenida de América',40.438,-3.677],['Ópera',40.418,-3.7095],['Palacio Real',40.418,-3.7143],['Templo de Debod',40.424,-3.7178],['Museo del Prado',40.4138,-3.6921],['Reina Sofía',40.408,-3.6945],['Chueca',40.4229,-3.6975],['Malasaña',40.426,-3.7045],['Tribunal',40.4262,-3.701],['Alonso Martínez',40.4277,-3.6955],['Príncipe Pío',40.421,-3.72],['Ciudad Universitaria',40.444,-3.727],['Ventas',40.431,-3.663],['Pacífico',40.401,-3.675],['Tirso de Molina',40.4123,-3.7044],['Antón Martín',40.4125,-3.6985],['Gregorio Marañón',40.4378,-3.6915],['Quevedo',40.433,-3.704],['Tetuán',40.4605,-3.6985],['Aeropuerto T4',40.4919,-3.5932],['Aeropuerto T1',40.4673,-3.5718],['Alcalá de Henares',40.4818,-3.3643],['San Lorenzo de El Escorial',40.5926,-4.1474],['El Escorial',40.5826,-4.1272],['Aranjuez',40.0331,-3.6031],['Getafe',40.3057,-3.7329],['Móstoles',40.3223,-3.8649],['Alcorcón',40.3458,-3.8249],['Leganés',40.3272,-3.7635],['Fuenlabrada',40.2842,-3.7942],['Parla',40.2368,-3.7672],['Pozuelo de Alarcón',40.4351,-3.8136],['Las Rozas',40.4929,-3.8737],['Majadahonda',40.4735,-3.8718],['Boadilla del Monte',40.405,-3.878],['Alcobendas',40.5475,-3.642],['San Sebastián de los Reyes',40.5474,-3.6261],['Tres Cantos',40.6006,-3.7092],['Colmenar Viejo',40.659,-3.765],['Torrejón de Ardoz',40.456,-3.48],['Coslada',40.4238,-3.5613],['San Fernando de Henares',40.4248,-3.5336],['Rivas-Vaciamadrid',40.358,-3.54],['Mejorada del Campo',40.3953,-3.4869],['Arganda del Rey',40.301,-3.438],['Valdemoro',40.1907,-3.6789],['Collado Villalba',40.635,-4.005],['Guadarrama',40.672,-4.089],['Cercedilla',40.74,-4.057],['Navacerrada',40.729,-4.013],['Villaviciosa de Odón',40.358,-3.9],['Navalcarnero',40.289,-4.014]].map(([n,lat,lon])=>({n,lat,lon}));
+let geoT=null;function geoSearch(q){clearTimeout(geoT);if(q.trim().length<3)return;geoT=setTimeout(async()=>{try{const near=ME?ME.lat+','+ME.lon:'40.4169,-3.7035';const r=await apiRuta({geo:q,near});if(view!=='search'||$('#si').value!==q)return;const box=document.createElement('div');box.innerHTML=r.filter(x=>x.lat!=null).map((x,i)=>`<button class="row" data-g="${i}">${IC.pin}<div class="grow"><b>${esc(x.n)}</b><div class="nx">${esc(x.zona||'')}</div></div></button>`).join('');box.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{const x=r[b.dataset.g];openRoute({n:x.n,lat:x.lat,lon:x.lon})});const ask=$('#res').querySelector('a.row');ask?$('#res').insertBefore(box,ask):$('#res').appendChild(box)}catch(e){}},400)}
 function openSearch(){solo(false);view='search';card.classList.add('big');
  render(`<div><div class="hd"><div class="grow"><input class="inp" id="si" placeholder="Sitio, pueblo o nº de parada" autocomplete="off" enterkeyhint="search"></div><button class="rb" id="cl" aria-label="Cerrar">${IC.x}</button></div><div id="res"></div></div>`);
  const show=q=>{const n=q.replace(/\D/g,'');let h='';
@@ -299,7 +373,7 @@ function openSearch(){solo(false);view='search';card.classList.add('big');
   if(q.trim())h+=`<a class="row" style="text-decoration:none;color:inherit" target="_blank" rel="noopener" href="${claudeURL('Quiero ir a '+q)}">${IC.phone}<div class="grow"><b>Preguntar a Claude</b><div class="nx">«${esc(q)}»</div></div></a>`;
   $('#res').innerHTML=h;
   $('#res').querySelectorAll('[data-num]').forEach(b=>b.onclick=()=>openStop(b.dataset.num));
-  $('#res').querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>openCompare(PLACES[b.dataset.p]))};
+  $('#res').querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>openRoute(PLACES[b.dataset.p]));geoSearch(q)};
  $('#si').oninput=e=>show(e.target.value);show('');setTimeout(()=>$('#si').focus(),60);
  $('#cl').onclick=()=>{card.classList.remove('big');renderHome()};setH()}
 $('#q').onclick=openSearch;
@@ -333,7 +407,7 @@ $('#tMap').onclick=()=>{$('#set').classList.remove('open');$('#tSet').classList.
 /* ---------- voz (Safari) + Claude ---------- */
 const claudeURL=t=>'https://claude.ai/new?q='+encodeURIComponent(t+(ME?` (estoy en ${ME.lat.toFixed(4)}, ${ME.lon.toFixed(4)})`:'')+'. Usa el conector EMT MADRID.');
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let rec=null,heard='';
-function say(t){$('#vText').textContent=t;if(!P.speak||!('speechSynthesis' in window))return;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='es-ES';u.rate=1.02;const v=speechSynthesis.getVoices().find(v=>/^es(-|_)ES/i.test(v.lang));if(v)u.voice=v;speechSynthesis.speak(u)}catch(e){}}
+function say(t,quiet){if(!quiet)$('#vText').textContent=t;if(!P.speak||!('speechSynthesis' in window))return;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='es-ES';u.rate=1.02;const v=speechSynthesis.getVoices().find(v=>/^es(-|_)ES/i.test(v.lang));if(v)u.voice=v;speechSynthesis.speak(u)}catch(e){}}
 function openVoice(){$('#voice').classList.add('open');$('#vText').textContent='Toca y habla';$('#vSub').textContent='Prueba: «¿Cuándo pasa mi bus?» o «Llévame a Moncloa».';$('#vClaude').href=claudeURL('Ayúdame a moverme por Madrid');listen()}
 function listen(){if(!SR){$('#vText').textContent='Este navegador no deja usar el micrófono aquí.';$('#vSub').textContent='Toca «Seguir con Claude» y usa su modo de voz.';return}
  try{rec&&rec.abort()}catch(e){}rec=new SR();rec.lang='es-ES';rec.interimResults=true;rec.continuous=false;heard='';
@@ -345,8 +419,10 @@ function listen(){if(!SR){$('#vText').textContent='Este navegador no deja usar e
 function intent(t){const n=norm(t);$('#vClaude').href=claudeURL(t);
  const dest=n.match(/(?:llevame|ir|voy|llegar|llego|vamos|como voy|como llego)\s+(?:a|al|hasta|en)\s+(.+)$/)||n.match(/^(?:a|al|hasta)\s+(.+)$/);
  if(dest){const q=dest[1].replace(/^(la|el|los|las)\s+/,'').trim();const p=PLACES.find(p=>norm(p.n)===q)||PLACES.find(p=>norm(p.n).includes(q)||q.includes(norm(p.n)));
-  if(p){openCompare(p);const best=CMP.list&&CMP.list[0];if(best){say(`Para ir a ${p.n}, lo mejor ahora es ${best.name||MODES[best.k][0]}: unos ${best.m} minutos${best.c?', por unos '+eur(best.lo!=null?best.lo:best.c):''}.`);$('#vSub').textContent='Te dejo todas las opciones en el mapa.';setTimeout(()=>$('#voice').classList.remove('open'),3500);return}}
-  say('No conozco ese sitio. Te paso con Claude.');$('#vSub').textContent='Toca «Seguir con Claude».';return}
+  if(p){$('#vText').textContent='Buscando la mejor ruta a '+p.n+'…';$('#voice').classList.remove('open');openRoute(p,{speak:true});return}
+  apiRuta({geo:q,near:ME?ME.lat+','+ME.lon:'40.4169,-3.7035'}).then(r=>{const x=r.find(x=>x.lat!=null);if(x){$('#voice').classList.remove('open');openRoute({n:x.n,lat:x.lat,lon:x.lon},{speak:true})}else{say('No encuentro ese sitio. Te paso con Claude.')}}).catch(()=>say('No encuentro ese sitio.'));return}
+  if(false){
+  }
  if(/cuando|cuanto|proximo|pasa|llega|bus/.test(n)){const h=nextBus();if(h){const f=P.favs.find(f=>String(f.id)===h.id);say(`El ${h.g.linea} hacia ${h.g.destino} pasa por ${(f&&(f.alias||f.nombre))||(h.st&&h.st.nombre)||'tu parada'} ${h.m<=0?'ahora mismo':'en '+h.m+' minutos'}.${h.w?(h.m-h.w<=1?' Sal ya.':' Sal en '+(h.m-h.w)+' minutos.'):''}`)}else say('Ahora no veo buses con tiempo estimado en tus paradas.');return}
  say('Eso te lo resuelve mejor Claude.');$('#vSub').textContent='Toca «Seguir con Claude» y te lo explica con datos de la EMT.'}
 $('#tVoice').onclick=openVoice;$('#vTalk').onclick=listen;$('#vClose').onclick=()=>{$('#voice').classList.remove('open');try{rec&&rec.abort();speechSynthesis.cancel()}catch(e){}};
