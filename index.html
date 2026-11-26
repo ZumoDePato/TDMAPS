@@ -125,6 +125,15 @@ h2{font-size:21px;line-height:1.15;margin:0 0 2px;font-weight:700;text-wrap:bala
 .st:not(:last-child)::after{content:"";position:absolute;left:16px;top:44px;bottom:-6px;width:2px;background:var(--hair)}
 #alert{position:fixed;left:12px;right:12px;top:max(10px,env(safe-area-inset-top));z-index:15;min-height:48px;background:var(--ink);color:var(--ui);border-radius:18px;padding:14px 16px;display:flex;gap:10px;align-items:center;font-weight:600;box-shadow:var(--sh);transform:translateY(-160%);transition:transform .45s var(--ease),visibility 0s .45s}
 #alert{pointer-events:none;visibility:hidden}#alert.show{transform:none;pointer-events:auto;visibility:visible;transition:transform .45s var(--ease),visibility 0s}#alert.urg{background:#e2362b;color:#fff}
+/* búsqueda */
+#srch{position:fixed;left:0;right:0;top:0;height:100%;z-index:14;background:var(--bg);display:flex;flex-direction:column;transform:translateY(100%);transition:transform .38s var(--ease);will-change:transform}
+#srch.open{transform:none}
+.shd{display:flex;align-items:center;gap:10px;padding:max(10px,env(safe-area-inset-top)) 12px 10px;flex:none;background:var(--bg)}
+.sbox{flex:1;display:flex;align-items:center;gap:8px;height:48px;border-radius:24px;background:var(--ui);box-shadow:0 2px 10px light-dark(rgba(20,30,45,.08),rgba(0,0,0,.4));padding:0 14px;color:var(--mute)}
+.sbox input{flex:1;border:0;background:none;outline:none;font:500 17px Barlow,sans-serif;color:var(--ink);height:100%;-webkit-appearance:none}
+.sbox:focus-within{box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 40%,transparent)}
+.sclose{font-weight:600;color:var(--acc2);height:44px;padding:0 4px}
+#res{flex:1;overflow-y:auto;padding:0 16px calc(16px + env(safe-area-inset-bottom));overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 /* modo viaje */
 #top{transition:transform .45s var(--ease)}
 #card{transition:max-height .4s var(--ease),transform .45s var(--ease),opacity .3s}
@@ -180,6 +189,10 @@ body.calm *{animation:none!important;transition-duration:.01s!important}
  <div class="row1"><button id="tripMain" aria-label="Ver los pasos del viaje"><span class="ring"><svg viewBox="0 0 62 62" aria-hidden="true"><circle class="bgc" cx="31" cy="31" r="27"/><circle class="fg" id="tripArc" cx="31" cy="31" r="27" stroke-dasharray="169.6" stroke-dashoffset="0"/></svg><b id="tripMin"></b></span><span id="tripTx"><b></b><span></span></span></button>
  <div class="tbtns"><button id="tripSmall" aria-label="Hacer más pequeño"><svg class="i" viewBox="0 0 24 24"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg></button><button id="tripEnd" aria-label="Terminar viaje"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div></div>
  <div class="track" id="tripTrack" aria-hidden="true"></div>
+</section>
+<section id="srch" role="dialog" aria-modal="true" aria-label="Buscar" inert>
+ <div class="shd"><label class="sbox"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="si" type="search" placeholder="Sitio, calle o nº de parada" autocomplete="off" autocorrect="off" enterkeyhint="search" aria-label="Buscar destino o parada"></label><button id="scl" class="sclose">Cancelar</button></div>
+ <div id="res" role="list"></div>
 </section>
 <div id="alert" role="alert" aria-live="assertive" title="Toca para cerrar"></div>
 <button id="restore" aria-label="Mostrar panel"><svg class="i" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg><span id="rtxt">Mostrar</span></button>
@@ -424,19 +437,24 @@ $('#tripEnd').onclick=endTrip;
 
 /* ---------- búsqueda ---------- */
 const PLACES=[['Sol',40.4169,-3.7035],['Callao',40.42,-3.7058],['Plaza de España',40.4233,-3.7123],['Moncloa',40.4351,-3.7189],['Argüelles',40.43,-3.7155],['Atocha',40.4075,-3.6915],['Cibeles',40.4193,-3.6931],['Colón',40.4253,-3.6903],['Retiro',40.4153,-3.6845],['Nuevos Ministerios',40.446,-3.692],['Plaza de Castilla',40.4664,-3.6886],['Chamartín (estación)',40.4722,-3.6826],['Bernabéu',40.4531,-3.6883],['Metropolitano',40.4362,-3.5995],['Cuatro Caminos',40.447,-3.7035],['Bilbao',40.429,-3.702],['Lavapiés',40.4089,-3.701],['La Latina',40.411,-3.709],['Embajadores',40.404,-3.703],['Legazpi',40.391,-3.695],['Méndez Álvaro',40.396,-3.678],['Goya',40.4243,-3.6758],['Manuel Becerra',40.4285,-3.669],['Avenida de América',40.438,-3.677],['Ópera',40.418,-3.7095],['Palacio Real',40.418,-3.7143],['Templo de Debod',40.424,-3.7178],['Museo del Prado',40.4138,-3.6921],['Reina Sofía',40.408,-3.6945],['Chueca',40.4229,-3.6975],['Malasaña',40.426,-3.7045],['Tribunal',40.4262,-3.701],['Alonso Martínez',40.4277,-3.6955],['Príncipe Pío',40.421,-3.72],['Ciudad Universitaria',40.444,-3.727],['Ventas',40.431,-3.663],['Pacífico',40.401,-3.675],['Tirso de Molina',40.4123,-3.7044],['Antón Martín',40.4125,-3.6985],['Gregorio Marañón',40.4378,-3.6915],['Quevedo',40.433,-3.704],['Tetuán',40.4605,-3.6985],['Aeropuerto T4',40.4919,-3.5932],['Aeropuerto T1',40.4673,-3.5718],['Alcalá de Henares',40.4818,-3.3643],['San Lorenzo de El Escorial',40.5926,-4.1474],['El Escorial',40.5826,-4.1272],['Aranjuez',40.0331,-3.6031],['Getafe',40.3057,-3.7329],['Móstoles',40.3223,-3.8649],['Alcorcón',40.3458,-3.8249],['Leganés',40.3272,-3.7635],['Fuenlabrada',40.2842,-3.7942],['Parla',40.2368,-3.7672],['Pozuelo de Alarcón',40.4351,-3.8136],['Las Rozas',40.4929,-3.8737],['Majadahonda',40.4735,-3.8718],['Boadilla del Monte',40.405,-3.878],['Alcobendas',40.5475,-3.642],['San Sebastián de los Reyes',40.5474,-3.6261],['Tres Cantos',40.6006,-3.7092],['Colmenar Viejo',40.659,-3.765],['Torrejón de Ardoz',40.456,-3.48],['Coslada',40.4238,-3.5613],['San Fernando de Henares',40.4248,-3.5336],['Rivas-Vaciamadrid',40.358,-3.54],['Mejorada del Campo',40.3953,-3.4869],['Arganda del Rey',40.301,-3.438],['Valdemoro',40.1907,-3.6789],['Collado Villalba',40.635,-4.005],['Guadarrama',40.672,-4.089],['Cercedilla',40.74,-4.057],['Navacerrada',40.729,-4.013],['Villaviciosa de Odón',40.358,-3.9],['Navalcarnero',40.289,-4.014]].map(([n,lat,lon])=>({n,lat,lon}));
-let geoT=null;function geoSearch(q){clearTimeout(geoT);if(q.trim().length<3)return;geoT=setTimeout(async()=>{try{const near=ME?ME.lat+','+ME.lon:'40.4169,-3.7035';const r=await apiRuta({geo:q,near});if(view!=='search'||$('#si').value!==q)return;const box=document.createElement('div');box.innerHTML=r.filter(x=>x.lat!=null).map((x,i)=>`<button class="row" data-g="${i}">${IC.pin}<div class="grow"><b>${esc(x.n)}</b><div class="nx">${esc(x.zona||'')}</div></div></button>`).join('');box.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{const x=r[b.dataset.g];openRoute({n:x.n,lat:x.lat,lon:x.lon})});const ask=$('#res').querySelector('a.row');ask?$('#res').insertBefore(box,ask):$('#res').appendChild(box)}catch(e){}},400)}
-function openSearch(){solo(false);view='search';card.classList.add('big');
- render(`<div><div class="hd"><div class="grow"><input class="inp" id="si" placeholder="Sitio, pueblo o nº de parada" autocomplete="off" enterkeyhint="search"></div><button class="rb" id="cl" aria-label="Cerrar">${IC.x}</button></div><div id="res"></div></div>`);
+let geoT=null;function geoSearch(q){clearTimeout(geoT);if(q.trim().length<3)return;geoT=setTimeout(async()=>{try{const near=ME?ME.lat+','+ME.lon:'40.4169,-3.7035';const r=await apiRuta({geo:q,near});if(view!=='search'||$('#si').value!==q)return;const box=document.createElement('div');box.innerHTML=r.filter(x=>x.lat!=null).map((x,i)=>`<button class="row" data-g="${i}">${IC.pin}<div class="grow"><b>${esc(x.n)}</b><div class="nx">${esc(x.zona||'')}</div></div></button>`).join('');box.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{const x=r[b.dataset.g];pick(()=>openRoute({n:x.n,lat:x.lat,lon:x.lon}))});const ask=$('#res').querySelector('a.row');ask?$('#res').insertBefore(box,ask):$('#res').appendChild(box)}catch(e){}},400)}
+/* búsqueda a pantalla completa: sube desde abajo y se adapta al teclado del iPhone */
+let prevView='home';
+function fitSearch(){const v=window.visualViewport,el=$('#srch');if(!v||!el.classList.contains('open'))return;el.style.height=v.height+'px';el.style.top=v.offsetTop+'px'}
+if(window.visualViewport){visualViewport.addEventListener('resize',fitSearch);visualViewport.addEventListener('scroll',fitSearch)}
+function closeSearch(back){const el=$('#srch');el.classList.remove('open');el.inert=true;$('#si').blur();if(back){view=prevView==='search'?'home':prevView;if(view==='home')renderHome()}}
+const pick=f=>{closeSearch(false);f()};
+function openSearch(){solo(false);prevView=view;view='search';const el=$('#srch');el.inert=false;el.classList.add('open');const si=$('#si');si.value='';si.focus();fitSearch();
  const show=q=>{const n=q.replace(/\D/g,'');let h='';
   if(n&&n===q.trim())h+=`<button class="row" data-num="${esc(n)}">${IC.bus}<div class="grow"><b>Parada ${esc(n)}</b><div class="nx">Ver sus buses</div></div></button>`;
-  h+=P.favs.filter(f=>q&&norm(f.alias||f.nombre).includes(norm(q))).map(f=>`<button class="row" data-num="${esc(f.id)}">${IC.starF}<div class="grow"><b>${esc(f.alias||f.nombre)}</b><div class="nx">Mi parada</div></div></button>`).join('');
+  h+=P.favs.filter(f=>!q||norm(f.alias||f.nombre).includes(norm(q))).map(f=>`<button class="row" data-num="${esc(f.id)}">${IC.starF}<div class="grow"><b>${esc(f.alias||f.nombre)}</b><div class="nx">Mi parada</div></div></button>`).join('');
   h+=PLACES.filter(p=>norm(p.n).includes(norm(q))).slice(0,q?8:6).map(p=>`<button class="row" data-p="${PLACES.indexOf(p)}">${IC.pin}<div class="grow"><b>${esc(p.n)}</b><div class="nx">Cómo llegar</div></div></button>`).join('');
   if(q.trim())h+=`<a class="row" style="text-decoration:none;color:inherit" target="_blank" rel="noopener" href="${claudeURL('Quiero ir a '+q)}">${IC.phone}<div class="grow"><b>Preguntar a Claude</b><div class="nx">«${esc(q)}»</div></div></a>`;
-  $('#res').innerHTML=h;
-  $('#res').querySelectorAll('[data-num]').forEach(b=>b.onclick=()=>openStop(b.dataset.num));
-  $('#res').querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>openRoute(PLACES[b.dataset.p]));geoSearch(q)};
- $('#si').oninput=e=>show(e.target.value);show('');setTimeout(()=>$('#si').focus(),60);
- $('#cl').onclick=()=>{card.classList.remove('big');renderHome()};setH()}
+  $('#res').innerHTML=h||'<p class="sub" style="padding:12px 4px">Escribe un sitio, una calle o el número de una parada.</p>';
+  $('#res').querySelectorAll('[data-num]').forEach(b=>b.onclick=()=>pick(()=>openStop(b.dataset.num)));
+  $('#res').querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>pick(()=>openRoute(PLACES[b.dataset.p])));geoSearch(q)};
+ si.oninput=e=>show(e.target.value);si.onkeydown=e=>{if(e.key==='Enter'){const f=$('#res .row');f&&f.click()}if(e.key==='Escape')closeSearch(true)};show('');
+ $('#scl').onclick=()=>closeSearch(true)}
 $('#q').onclick=openSearch;
 
 /* ---------- ajustes ---------- */
