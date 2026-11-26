@@ -1,6 +1,7 @@
 // Rutas en transporte público (metro, bus, Cercanías, interurbanos) con Transitous (MOTIS 2), servicio abierto y gratuito.
 // /api/ruta?from=lat,lon&to=lat,lon[&time=ISO&arriveBy=1]&key=...   ·   /api/ruta?geo=texto&key=...
 import { checkKey } from './_emt.js';
+import { metroPlan } from './_metro.js';
 
 const BASE = 'https://api.transitous.org';
 const UA = 'Parada/1.0 (app personal; github.com/ZumoDePato/TDMAPS)';
@@ -73,13 +74,28 @@ export default async function handler(req, res) {
     const q = new URLSearchParams({ fromPlace: from, toPlace: to, detailedTransfers: 'false', numItineraries: '4', language: 'es' });
     const t = u.searchParams.get('time'); if (t) q.set('time', t);
     if (u.searchParams.get('arriveBy') === '1') q.set('arriveBy', 'true');
-    let j, lastErr;
+    let j = null;
     for (const v of ['v5', 'v4', 'v3']) {
-      try { j = await get(`/api/${v}/plan?${q}`); break; } catch (e) { lastErr = e; }
+      try { j = await get(`/api/${v}/plan?${q}`); break; } catch (e) {}
     }
-    if (!j) throw lastErr;
+    const [fa, fo] = from.split(',').map(Number), [ta, to2] = to.split(',').map(Number);
+    const t0 = t ? Date.parse(t) || Date.now() : Date.now();
+    // Transitous no tiene el Metro de Madrid: lo calculamos con nuestro grafo y lo mezclamos
+    let metro = [];
+    try { metro = metroPlan([fa, fo], [ta, to2], t0); } catch (e) {}
+    const tr = (j?.itineraries || []).map(simplify).filter(i => i.legs.some(l => l.mode !== 'WALK'));
+    let directo = (j?.direct || []).map(simplify).slice(0, 1);
+    if (!directo.length) {
+      // siempre hay trayecto: como mínimo, andando
+      const R = 6371000, r = Math.PI / 180, dl = (ta - fa) * r, dn = (to2 - fo) * r;
+      const m = 2 * R * Math.asin(Math.sqrt(Math.sin(dl / 2) ** 2 + Math.cos(fa * r) * Math.cos(ta * r) * Math.sin(dn / 2) ** 2)) * 1.3;
+      const min = Math.max(1, Math.round(m / 1.25 / 60));
+      directo = [{ min, start: new Date(t0).toISOString(), end: new Date(t0 + min * 60000).toISOString(), transfers: 0, legs: [{ mode: 'WALK', min, dist: Math.round(m), fromLL: [fa, fo], toLL: [ta, to2] }], estimado: true }];
+    }
+    const end = i => Date.parse(i.end) || Infinity;
+    const itinerarios = [...metro, ...tr].sort((a, b) => end(a) - end(b)).slice(0, 5);
     res.setHeader('Cache-Control', 's-maxage=30');
-    res.status(200).json({ itinerarios: (j.itineraries || []).map(simplify), directo: (j.direct || []).map(simplify).slice(0, 1) });
+    res.status(200).json({ itinerarios, directo });
   } catch (e) {
     res.status(502).json({ error: 'No he podido calcular la ruta ahora (' + e.message + ').' });
   }

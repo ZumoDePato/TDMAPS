@@ -41,6 +41,9 @@ label.q{display:block;font-size:15px;color:var(--mute);margin-bottom:10px;font-w
 #list span{font-size:14px;color:var(--mute)}
 #list .hdr{font-size:13px;color:var(--mute);padding:18px 0 4px;border:0}
 #where{margin-top:26px;font-size:14px;color:var(--mute)}
+#where .acc{font-variant-numeric:tabular-nums;color:#7d7d86}#where .acc.bad{color:#ff8a7a}
+.tk-from{width:100%;text-align:left;color:inherit;font:inherit;background:none;border:0;padding:0;cursor:pointer}.tk-e{color:#ff5a4e;font-weight:600}
+.note{margin-top:18px;font-size:13px;color:var(--mute)}
 #where button{text-decoration:underline;text-underline-offset:3px}
 /* permisos y micro */
 .pk{font-size:15px;color:var(--mute);font-weight:500;margin:0 0 10px}
@@ -170,9 +173,22 @@ const remember=d=>{REC=[d,...REC.filter(x=>x.n!==d.n)].slice(0,6);try{localStora
 
 /* ubicación */
 let ME=null,gpsMsg='';
+let gpsW=null,ORIG=null;
+const dM=(a,b)=>{const r=Math.PI/180,x=Math.sin((b.lat-a.lat)*r/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin((b.lon-a.lon)*r/2)**2;return 12742000*Math.asin(Math.sqrt(x))};
+function onFix(p){const f={lat:p.coords.latitude,lon:p.coords.longitude,acc:Math.round(p.coords.accuracy||999),t:Date.now()};
+ /* nos quedamos con la lectura buena: una más precisa, o una nueva si te has movido de verdad o la anterior ya es vieja */
+ if(!ME||f.acc<=ME.acc||dM(ME,f)>Math.max(f.acc,ME.acc)||Date.now()-ME.t>60000){ME=f;gpsMsg='ok';paintWhere()}}
 function gps(){if(!('geolocation' in navigator)){gpsMsg='no';paintWhere();return}
- navigator.geolocation.watchPosition(p=>{ME={lat:p.coords.latitude,lon:p.coords.longitude};gpsMsg='ok';paintWhere()},e=>{gpsMsg=e.code===1?'denied':'no';paintWhere()},{enableHighAccuracy:true,maximumAge:15000,timeout:20000})}
-function paintWhere(){const w=$('#where');if(!KEY){w.textContent='Abre la app con tu enlace que lleva ?key=';return}if(gpsMsg==='ok'){w.textContent='Desde donde estás.'}else if(gpsMsg==='denied'){w.innerHTML='Sin tu ubicación calculo desde Sol. <button id="gp">Activarla</button>';$('#gp').onclick=()=>alert('Ajustes del iPhone → Privacidad → Localización → Safari → «Al usar la app».')}else w.textContent=gpsMsg==='no'?'Calculo desde Sol.':'Buscando tu ubicación…'}
+ if(gpsW!=null)navigator.geolocation.clearWatch(gpsW);
+ gpsW=navigator.geolocation.watchPosition(onFix,e=>{if(!ME){gpsMsg=e.code===1?'denied':'no';paintWhere()}},{enableHighAccuracy:true,maximumAge:0,timeout:30000})}
+/* espera unos segundos a una lectura precisa antes de calcular */
+function fix(ms=6000){return new Promise(res=>{if(ORIG||!('geolocation' in navigator))return res();if(ME&&ME.acc<=60&&Date.now()-ME.t<20000)return res();
+ const t0=Date.now(),iv=setInterval(()=>{if((ME&&ME.acc<=60)||Date.now()-t0>ms||gpsMsg==='denied'){clearInterval(iv);res()}},250)})}
+const origin=()=>ORIG||ME||{lat:40.4169,lon:-3.7035};
+function paintWhere(){const w=$('#where');if(!KEY){w.textContent='Abre la app con tu enlace que lleva ?key=';return}
+ if(PICK==='from'){w.textContent='Elige desde dónde sales.';return}
+ let t;if(ORIG)t='Sales de <b>'+esc(ORIG.n)+'</b>';else if(gpsMsg==='ok')t='Sales de donde estás <span class="acc'+(ME.acc>100?' bad':'')+'">±'+ME.acc+' m</span>';else if(gpsMsg==='denied')t='Sin tu ubicación: sales de Sol';else if(gpsMsg==='no')t='Sales de Sol';else t='Buscando dónde estás…';
+ w.innerHTML=t+' <button id="chg">Cambiar</button>';$('#chg').onclick=pickFrom}
 
 /* colores de línea */
 const METRO={'1':'#2DBEF0','2':'#ED1C24','3':'#FFD000','4':'#B65518','5':'#8FD400','6':'#98989B','7':'#EE7518','8':'#EC82B1','9':'#A60084','10':'#005AA9','11':'#009B3A','12':'#A49800','R':'#FFFFFF'};
@@ -184,11 +200,17 @@ const what=l=>({metro:'la línea',ligero:'el Metro Ligero',tren:'el Cercanías',
 
 /* pantalla 1: buscar */
 const q=$('#q'),list=$('#list');let gT=null,seq=0;
-function show(items,hdr){if(voice&&!hdr&&items.length){voice=false;const t=norm(q.value);if(norm(items[0].n).includes(t)||t.includes(norm(items[0].n))){go(items[0]);return}}list.innerHTML=(hdr?`<li class="hdr" role="presentation">${esc(hdr)}</li>`:'')+items.map((x,i)=>`<li role="presentation"><button role="option" data-i="${i}"><b>${esc(x.n)}</b>${x.zona?`<span>${esc(x.zona)}</span>`:''}</button></li>`).join('');
- list.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>go(items[+b.dataset.i]))}
-function idle(){REC.length?show(REC,'Recientes'):list.innerHTML=''}
+function show(items,hdr){if(voice&&!hdr&&items.length){voice=false;const t=norm(q.value);if(norm(items[0].n).includes(t)||t.includes(norm(items[0].n))){choose(items[0]);return}}list.innerHTML=(hdr?`<li class="hdr" role="presentation">${esc(hdr)}</li>`:'')+items.map((x,i)=>`<li role="presentation"><button role="option" data-i="${i}"><b>${esc(x.n)}</b>${x.zona?`<span>${esc(x.zona)}</span>`:''}</button></li>`).join('');
+ list.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>choose(items[+b.dataset.i]))}
+let PICK='to',LAST=null;
+const HERE={n:'Mi ubicación',zona:'Usar el GPS',here:true};
+function idle(){if(PICK==='from'){show([HERE,...REC],'Desde dónde sales');return}REC.length?show(REC,'Recientes'):list.innerHTML=''}
+function choose(x){if(PICK!=='from'){go(x);return}
+ PICK='to';q.placeholder='¿A dónde vas?';if(x.here){ORIG=null;gps()}else ORIG={n:x.n,lat:x.lat,lon:x.lon};paintWhere();
+ if(LAST)go(LAST);else{q.value='';idle();q.focus()}}
+function pickFrom(){PICK='from';clearInterval(tick);R=null;screen('ask');q.value='';q.placeholder='¿Desde dónde sales?';paintWhere();idle();setTimeout(()=>q.focus(),50)}
 q.addEventListener('input',()=>{const t=q.value.trim();clearTimeout(gT);if(t.length<2){idle();return}const my=++seq;
- gT=setTimeout(async()=>{try{const near=ME?ME.lat+','+ME.lon:'40.4169,-3.7035';const r=(await ruta({geo:t,near})).filter(x=>x.lat!=null);if(my===seq)show(r)}catch(e){if(my===seq)list.innerHTML=`<li class="hdr">${esc(e.message)}</li>`}},300)});
+ gT=setTimeout(async()=>{try{const o=origin(),near=o.lat+','+o.lon;const r=(await ruta({geo:t,near})).filter(x=>x.lat!=null);if(my===seq)show(PICK==='from'?[HERE,...r]:r)}catch(e){if(my===seq)list.innerHTML=`<li class="hdr">${esc(e.message)}</li>`}},300)});
 q.addEventListener('keydown',e=>{if(e.key==='Enter'){const b=list.querySelector('[data-i]');b&&b.click()}});
 
 /* mini croquis futurista de la ruta */
@@ -263,7 +285,7 @@ function croquis(it,O,D){const legs=it.legs;let prev=[O.lat,O.lon];const segs=[]
  <filter id="gl" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3.2"/></filter></defs>
  <rect width="${W}" height="${H}" fill="url(#gr)"/><rect width="${W}" height="${H}" fill="url(#vg)"/>
  <path d="M8 22V8h14M${W-22} 8h14v14M8 ${H-22}v14h14M${W-22} ${H-8}h14v-14" class="hud"/>
- <text x="14" y="${H-14}" class="ct ct3">${O.lat.toFixed(4)}°N ${Math.abs(O.lon).toFixed(4)}°W</text><text x="${W-14}" y="${H-14}" text-anchor="end" class="ct ct3">${(it.min||0)} MIN · ${segs.filter(s=>s.l.mode!=='WALK').length} LÍNEA${segs.filter(s=>s.l.mode!=='WALK').length===1?'':'S'}</text>
+ <text x="14" y="${H-14}" class="ct ct3">${O.lat.toFixed(4)}°N ${Math.abs(O.lon).toFixed(4)}°W</text><text x="${W-14}" y="${H-14}" text-anchor="end" class="ct ct3">${(it.min||0)} MIN · ${(n=>n?n+' LÍNEA'+(n===1?'':'S'):'A PIE')(segs.filter(s=>s.l.mode!=='WALK').length)}</text>
  ${ctxs}${paths}${nodes}
  <circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="9" class="me-r"/><circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="5" fill="#fff"/>${tag(sx,sy,'TÚ',sx>W*.7?'end':sx<W*.3?'start':'middle')}${tag(ex,ey-36,esc(String(D.n).toUpperCase().slice(0,24)),ex>W*.7?'end':ex<W*.3?'start':'middle').replace('ct ct2','ct ct2 ctd')}
  <circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="10" class="de-r"/><circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="5" fill="#ff453a"/>
@@ -274,17 +296,28 @@ let R=null,tick=null;
 function screen(id){$('#perm').classList.add('off');$('#ask').classList.toggle('off',id!=='ask');$('#go').classList.toggle('off',id!=='go');$('#'+id).scrollTop=0}
 let FROM='Tu ubicación';
 const top=d=>`<div class="tk" role="group" aria-label="Sales de ${esc(FROM)} y vas a ${esc(d.n)}"><button class="back tk-bk" id="bk" aria-label="Nueva búsqueda"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
- <div class="tk-r"><span class="tk-d from" aria-hidden="true"></span><div><span class="tk-l">Sales de</span><b id="fromN">${esc(FROM)}</b></div></div>
+ <button class="tk-r tk-from" id="fromB" aria-label="Cambiar desde dónde sales: ${esc(FROM)}"><span class="tk-d from" aria-hidden="true"></span><div><span class="tk-l">Sales de <span class="tk-e">· cambiar</span></span><b id="fromN">${esc(FROM)}</b>${!ORIG&&ME?`<span class="tk-z">±${ME.acc} m${ME.acc>100?' · ubicación aproximada':''}</span>`:''}</div></button>
  <div class="tk-line" aria-hidden="true"></div>
  <div class="tk-r"><span class="tk-d to" aria-hidden="true"></span><div><span class="tk-l">Vas a</span><b>${esc(d.n)}</b>${d.zona?`<span class="tk-z">${esc(d.zona)}</span>`:''}</div></div>
 </div>`;
-async function go(d){remember(d);q.blur();screen('go');const out=$('#out');FROM=ME?'Tu ubicación':'Puerta del Sol';
- if(ME)ruta({rev:ME.lat+','+ME.lon}).then(r=>{if(r&&r.n){FROM=r.n;const f=$('#fromN');if(f)f.textContent=FROM}}).catch(()=>{});
- out.innerHTML=top(d)+`<p class="msg"><span class="pulse"></span>Buscando el mejor camino…</p>`;$('#bk').onclick=back;
- const O=ME||{lat:40.4169,lon:-3.7035};
- try{const j=await ruta({from:O.lat+','+O.lon,to:d.lat+','+d.lon});const its=(j.itinerarios||[]).filter(i=>i.legs.some(l=>l.mode!=='WALK'));const walk=(j.directo||[])[0];
-  R={d,its,walk,i:0,O};if(!its.length&&walk){R.its=[walk]}if(!R.its.length)throw new Error('No encuentro cómo llegar ahora mismo.');paint();clearInterval(tick);tick=setInterval(paint,20000)}
- catch(e){out.innerHTML=top(d)+`<p class="msg">${esc(e.message)}<small>Prueba otra vez en un momento.</small></p>`;$('#bk').onclick=back}}
+function walkIt(O,d){const m=dM(O,d)*1.3,min=Math.max(1,Math.round(m/75)),t=Date.now();return{min,start:new Date(t).toISOString(),end:new Date(t+min*60000).toISOString(),legs:[{mode:'WALK',min,dist:Math.round(m)}]}}
+async function go(d){LAST=d;remember(d);q.blur();screen('go');const out=$('#out');
+ const bind=()=>{$('#bk').onclick=back;$('#fromB').onclick=pickFrom};
+ FROM=ORIG?ORIG.n:ME?'Tu ubicación':'Puerta del Sol';
+ out.innerHTML=top(d)+`<p class="msg"><span class="pulse"></span>${!ORIG&&(!ME||ME.acc>60)&&gpsMsg!=='denied'&&gpsMsg!=='no'?'Afinando dónde estás…':'Buscando el mejor camino…'}</p>`;bind();
+ await fix();if(LAST!==d)return;
+ FROM=ORIG?ORIG.n:ME?'Tu ubicación':'Puerta del Sol';
+ const O={...origin()};
+ if(!ORIG&&ME)ruta({rev:O.lat+','+O.lon}).then(r=>{if(r&&r.n&&!ORIG){FROM=r.n;const f=$('#fromN');if(f)f.textContent=FROM}}).catch(()=>{});
+ out.innerHTML=top(d)+`<p class="msg"><span class="pulse"></span>Buscando el mejor camino…</p>`;bind();
+ let its=[],walk=null,err=null;
+ try{const j=await ruta({from:O.lat+','+O.lon,to:d.lat+','+d.lon});its=(j.itinerarios||[]).filter(i=>i.legs.some(l=>l.mode!=='WALK'));walk=(j.directo||[])[0]}catch(e){err=e}
+ if(LAST!==d)return;
+ if(err&&/clave/i.test(err.message)){out.innerHTML=top(d)+`<p class="msg">${esc(err.message)}</p>`;bind();return}
+ /* siempre hay trayecto: si no hay transporte (o no hay red), andando */
+ if(!walk)walk=walkIt(O,d);
+ if(walk&&(!its.length||walk.min<=Math.min(...its.map(i=>i.min))+3))its=[walk,...its.filter(i=>i.min<walk.min*1.6)];
+ R={d,its,walk,i:0,O,off:!!err};paint();clearInterval(tick);tick=setInterval(paint,20000)}
 function paint(){if(!R)return;const it=R.its[R.i],d=R.d,legs=it.legs.filter(l=>!(l.mode==='WALK'&&(l.min||0)<1));const lv=minsTo(it.start);
  const steps=[];legs.forEach((l,i)=>{const nx=legs[i+1];
   if(l.mode==='WALK'){const to=nx?nx.from:d.n;steps.push(`<li class="walk">Anda ${Math.max(1,l.min)} min hasta ${i===legs.length-1?'tu destino':`<b>${esc(to||'la parada')}</b>`}.</li>`);return}
@@ -292,13 +325,14 @@ function paint(){if(!R)return;const it=R.its[R.i],d=R.d,legs=it.legs.filter(l=>!
   steps.push(`<li style="--c:${c}">Coge ${what(l)} ${pill(l,c)}${l.headsign?` dirección <em>${esc(l.headsign)}</em>`:''}${!legs[i-1]||legs[i-1].mode==='WALK'?'':` en <b>${esc(l.from||'')}</b>`}.<span class="det">${l.from&&(!legs[i-1]||legs[i-1].mode==='WALK')?esc(l.from)+' · ':''}sale ${hhmm(l.dep)}${l.track?' · vía '+esc(l.track):''}${l.stops?' · '+l.stops+' paradas':''}</span></li>`);
   steps.push(`<li style="--c:${c}">Bájate en <em>${esc(l.to||'')}</em>.</li>`)});
  steps.push(`<li class="end">Llegas a las ${hhmm(it.end)}.</li>`);
+ const note=R.off?'<p class="note">Sin conexión con el servidor: te pongo el camino andando.</p>':it.fuente==='metro'?'<p class="note">Tiempo de metro estimado (Metro de Madrid no da horarios en directo).</p>':'';
  $('#out').innerHTML=top(d)+`<div class="head">${it.min}<small>min</small></div>
  <p class="when${lv!=null&&lv<=1?' now':''}">${lv==null?'':lv<=1?'Sal ya':'Sal en '+lv+' min'} · llegas ${hhmm(it.end)}</p>
  ${croquis(it,R.O,d)}
- <ol class="steps">${steps.join('')}</ol>
+ <ol class="steps">${steps.join('')}</ol>${note}
  <div class="more">${R.its.length>1?`<button id="alt">Otra ruta · ${R.i+1}/${R.its.length}</button>`:''}<button id="new">Otro destino</button></div>`;
- $('#bk').onclick=back;$('#new').onclick=back;if($('#alt'))$('#alt').onclick=()=>{R.i=(R.i+1)%R.its.length;paint();$('#go').scrollTop=0}}
-function back(){clearInterval(tick);R=null;screen('ask');q.value='';idle();setTimeout(()=>q.focus(),50)}
+ $('#bk').onclick=back;$('#fromB').onclick=pickFrom;$('#new').onclick=back;if($('#alt'))$('#alt').onclick=()=>{R.i=(R.i+1)%R.its.length;paint();$('#go').scrollTop=0}}
+function back(){clearInterval(tick);R=null;LAST=null;PICK='to';q.placeholder='¿A dónde vas?';paintWhere();screen('ask');q.value='';idle();setTimeout(()=>q.focus(),50)}
 
 /* permisos */
 let PERM=null;try{PERM=localStorage.getItem('parada-perm')}catch(e){}
