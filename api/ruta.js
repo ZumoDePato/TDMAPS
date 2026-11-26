@@ -44,6 +44,19 @@ export default async function handler(req, res) {
   if (!checkKey(req)) { res.status(401).json({ error: 'Clave incorrecta' }); return; }
   const u = new URL(req.url, 'http://localhost');
   try {
+    const rev = ll(u.searchParams.get('rev'));
+    if (rev) {
+      let name = null;
+      try {
+        const j = await get(`/api/v1/reverse-geocode?place=${rev}&language=es`);
+        const m = (Array.isArray(j) ? j : []).find(x => x && x.name);
+        if (m) name = [m.name, m.houseNumber].filter(Boolean).join(', ');
+        if (m && m.type === 'STOP') name = 'Parada ' + m.name;
+      } catch (e) {}
+      res.setHeader('Cache-Control', 's-maxage=300');
+      res.status(200).json({ n: name });
+      return;
+    }
     const geo = u.searchParams.get('geo');
     if (geo) {
       const near = ll(u.searchParams.get('near'));

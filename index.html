@@ -56,6 +56,20 @@ label.q{display:block;font-size:15px;color:var(--mute);margin-bottom:10px;font-w
 #mic svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #mic.on{background:var(--red);animation:lv 1.1s ease-in-out infinite}
 @keyframes lv{50%{transform:scale(1.08);box-shadow:0 0 0 10px rgba(255,69,58,.18)}}
+/* billete origen → destino */
+.top{margin-bottom:22px}
+.tk{position:relative;background:linear-gradient(160deg,#101014,#0a0a0d);border:1px solid #1d1d22;border-radius:22px;padding:18px 18px 18px 16px;margin-bottom:30px}
+.tk-r{display:flex;gap:14px;align-items:flex-start}
+.tk-bk{position:absolute;top:12px;right:12px}
+.tk-r>div{padding-right:44px}
+.tk-r b{display:block;font-size:clamp(20px,5.6vw,26px);font-weight:700;line-height:1.15;letter-spacing:-.015em}
+.tk-l{display:block;font-size:13px;color:var(--mute);font-weight:500;margin-bottom:2px}
+.tk-z{display:block;font-size:14px;color:var(--mute);margin-top:2px}
+.tk-d{width:16px;height:16px;border-radius:50%;flex:none;margin-top:24px}
+.tk-d.from{background:#000;border:3.5px solid #fff;box-shadow:0 0 12px rgba(255,255,255,.35)}
+.tk-d.to{background:var(--red);box-shadow:0 0 14px rgba(255,69,58,.6)}
+.tk-line{width:2px;height:22px;margin:4px 0 4px 7px;background:repeating-linear-gradient(#555 0 4px,transparent 4px 8px)}
+.crq .ctd{fill:#ff8a80}
 /* croquis */
 .crq{margin:28px -8px 0;border-radius:22px;overflow:hidden;background:radial-gradient(120% 90% at 50% 40%,#0b0d14,#000);border:1px solid #17171c;box-shadow:inset 0 0 40px rgba(80,120,255,.06)}
 .crq svg{display:block;width:100%;height:auto}
@@ -197,15 +211,21 @@ function croquis(it,O,D){const legs=it.legs;let prev=[O.lat,O.lon];const segs=[]
  <path d="M8 22V8h14M${W-22} 8h14v14M8 ${H-22}v14h14M${W-22} ${H-8}h14v-14" class="hud"/>
  <text x="14" y="${H-14}" class="ct ct3">${O.lat.toFixed(4)}°N ${Math.abs(O.lon).toFixed(4)}°W</text><text x="${W-14}" y="${H-14}" text-anchor="end" class="ct ct3">${(it.min||0)} MIN · ${segs.filter(s=>s.l.mode!=='WALK').length} LÍNEA${segs.filter(s=>s.l.mode!=='WALK').length===1?'':'S'}</text>
  ${paths}${nodes}
- <circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="9" class="me-r"/><circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="5" fill="#fff"/>${tag(sx,sy,'TÚ',sx>W*.6?'end':'middle')}
+ <circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="9" class="me-r"/><circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="5" fill="#fff"/>${tag(sx,sy,'TÚ',sx>W*.7?'end':sx<W*.3?'start':'middle')}${tag(ex,ey-36,esc(String(D.n).toUpperCase().slice(0,24)),ex>W*.7?'end':ex<W*.3?'start':'middle').replace('ct ct2','ct ct2 ctd')}
  <circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="10" class="de-r"/><circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="5" fill="#ff453a"/>
  <g class="comet"><circle r="7" fill="#fff" opacity=".25" filter="url(#gl)"/><circle r="2.8" fill="#fff"/><animateMotion dur="${Math.min(7,2.5+segs.length*.8).toFixed(1)}s" begin="${delay.toFixed(2)}s" repeatCount="indefinite" path="${full}" keyPoints="0;1" keyTimes="0;1" calcMode="linear"/></g>
  </svg></figure>`}
 /* pantalla 2: el trayecto */
 let R=null,tick=null;
 function screen(id){$('#perm').classList.add('off');$('#ask').classList.toggle('off',id!=='ask');$('#go').classList.toggle('off',id!=='go');$('#'+id).scrollTop=0}
-const top=d=>`<div class="top"><button class="back" id="bk" aria-label="Nueva búsqueda"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button><div class="to">Hacia<b>${esc(d.n)}</b></div></div>`;
-async function go(d){remember(d);q.blur();screen('go');const out=$('#out');
+let FROM='Tu ubicación';
+const top=d=>`<div class="tk" role="group" aria-label="Sales de ${esc(FROM)} y vas a ${esc(d.n)}"><button class="back tk-bk" id="bk" aria-label="Nueva búsqueda"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+ <div class="tk-r"><span class="tk-d from" aria-hidden="true"></span><div><span class="tk-l">Sales de</span><b id="fromN">${esc(FROM)}</b></div></div>
+ <div class="tk-line" aria-hidden="true"></div>
+ <div class="tk-r"><span class="tk-d to" aria-hidden="true"></span><div><span class="tk-l">Vas a</span><b>${esc(d.n)}</b>${d.zona?`<span class="tk-z">${esc(d.zona)}</span>`:''}</div></div>
+</div>`;
+async function go(d){remember(d);q.blur();screen('go');const out=$('#out');FROM=ME?'Tu ubicación':'Puerta del Sol';
+ if(ME)ruta({rev:ME.lat+','+ME.lon}).then(r=>{if(r&&r.n){FROM=r.n;const f=$('#fromN');if(f)f.textContent=FROM}}).catch(()=>{});
  out.innerHTML=top(d)+`<p class="msg"><span class="pulse"></span>Buscando el mejor camino…</p>`;$('#bk').onclick=back;
  const O=ME||{lat:40.4169,lon:-3.7035};
  try{const j=await ruta({from:O.lat+','+O.lon,to:d.lat+','+d.lon});const its=(j.itinerarios||[]).filter(i=>i.legs.some(l=>l.mode!=='WALK'));const walk=(j.directo||[])[0];
